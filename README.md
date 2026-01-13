@@ -6,13 +6,7 @@
 ├── MovieLens.Rmd            ← R Markdown notebook (analysis + narrative)
 ├── MovieLens.pdf            ← Rendered PDF version of the notebook
 ├── 01_Setup.R               ← Data download, cleaning, and train/test split
-├── 03_MovieLens.R           ← Core modelling code (biases, regularisation, clamping)
-├── data/
-│   ├── ml-10M100K/          ← Raw MovieLens files (downloaded automatically)
-│   └── edx.rds              ← Pre‑processed training set (saved by 01_Setup.R)
-├── results/
-│   └── rmse_plot.png        ← Plot of RMSE vs. λ (included for reference)
-└── .Rprofile                ← Optional: sets knitr options for reproducibility
+└── 03_MovieLens.R           ← Core modelling code (biases, regularisation, clamping)
 </code></pre>
 <p><em>All R scripts are written for <strong>R ≥ 4.0</strong> and use the tidyverse ecosystem.</em></p>
 <hr>
