@@ -2,821 +2,2575 @@
 
 ## Objective
 
-The purpose of this document is to explain how to create a movie recommendation system using the MovieLens dataset.
-During the PH125.8x: Data Science: Machine Learning course, the dataset used was from the the dslabs package. For this exercise, we will use a 10M rows dataset available here :
+The purpose of this document is to explain how to create a movie
+recommendation system using the MovieLens dataset. During the PH125.8x:
+Data Science: Machine Learning course, the dataset used was from the the
+dslabs package. For this exercise, we will use a 10M rows dataset
+available here :
 
->https://grouplens.org/datasets/movielens/10m/
+> <https://grouplens.org/datasets/movielens/10m/>
 
 The history and context of this dataset are available here :
 
+> F. Maxwell Harper and Joseph A. Konstan. 2015. The MovieLens Datasets:
+> History and Context. ACM Transactions on Interactive Intelligent
+> Systems (TiiS) 5, 4, Article 19 (December 2015), 19 pages.
+> DOI=<http://dx.doi.org/10.1145/2827872>
 
->F. Maxwell Harper and Joseph A. Konstan. 2015. The MovieLens Datasets: History and Context. ACM Transactions on Interactive Intelligent Systems (TiiS) 5, 4, Article 19 (December 2015), 19 pages. DOI=http://dx.doi.org/10.1145/2827872
+First we will setup the environment and download and generate the
+dataset, then we will analyse the data, and finally we will train a
+machine learning algorithm using the inputs in the first subset (edx) to
+predict the movie ratings in the validation set (final\_holdout\_test).
 
-First we will setup the environment and download and generate the dataset, then we will analyse the data, and finally we will train a machine learning algorithm using the inputs in the first subset (edx) to predict the movie ratings in the validation set (final_holdout_test).
+The goal of this exercise is to be able to predict the movie ratings in
+the test set with a root mean square error (RMSE) lower than
+**0.86490**.
 
-The goal of this exercise is to be able to predict the movie ratings in the test set with a root mean square error (RMSE) lower than **0.86490**.
-
-This task is inspired by the Netflix challenge, which aimed to predict ratings without utilizing any user data (such as age or gender) due to privacy concerns. Ultimately, the goal is to predict which films a user would enjoy based on their previous ratings.
+This task is inspired by the Netflix challenge, which aimed to predict
+ratings without utilizing any user data (such as age or gender) due to
+privacy concerns. Ultimately, the goal is to predict which films a user
+would enjoy based on their previous ratings.
 
 ## Data preparation
 
-This section explains how the data is imported and prepared for further analysis. A portion of the process is based on the code provided in the course, specifically within the “01 Setup.R” script.
+This section explains how the data is imported and prepared for further
+analysis. A portion of the process is based on the code provided in the
+course, specifically within the “01 Setup.R” script.
 
-The code processes the MovieLens 10M dataset to create training (edx) and testing (final_holdout_test) datasets suitable for analysis.
+The code processes the MovieLens 10M dataset to create training (edx)
+and testing (final\_holdout\_test) datasets suitable for analysis.
 
-It begins by checking for necessary libraries, downloading the dataset, and extracting the ratings and movies files if they aren't already present. It reads and cleans the data, ensuring that columns are correctly formatted.
+It begins by checking for necessary libraries, downloading the dataset,
+and extracting the ratings and movies files if they aren’t already
+present. It reads and cleans the data, ensuring that columns are
+correctly formatted.
 
-The main dataset is created by merging ratings with movie details, and then a random subset is taken as a test set—10% of the data. To maintain consistency, only those users and movies present in the training set are included in the final test set. Any excluded rows are then added back to the training set. Finally, the code cleans up by removing unnecessary variables.
+The main dataset is created by merging ratings with movie details, and
+then a random subset is taken as a test set—10% of the data. To maintain
+consistency, only those users and movies present in the training set are
+included in the final test set. Any excluded rows are then added back to
+the training set. Finally, the code cleans up by removing unnecessary
+variables.
 
 # Exploratory Data Analysis
 
 ## Structure
 
-This section provides an overview of the datasets used in our analysis. We have two datasets: one for training our prediction algorithm and another for testing its effectiveness.
+This section provides an overview of the datasets used in our analysis.
+We have two datasets: one for training our prediction algorithm and
+another for testing its effectiveness.
 
-The training dataset, edx, shares the same structure as the final_holdout_test dataset, which is used for testing.
+The training dataset, edx, shares the same structure as the
+final\_holdout\_test dataset, which is used for testing.
 
-The edx dataset contains approximately 9 million ratings for various movies and consists of six variables :
+The edx dataset contains approximately 9 million ratings for various
+movies and consists of six variables :
 
-```{r, echo=FALSE}
-data_summary <- summary(edx)
-kable(data_summary) %>% kable_styling(font_size = 9)
-```
+<table class="table" style="font-size: 9px; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+</th>
+<th style="text-align:left;">
+userId
+</th>
+<th style="text-align:left;">
+movieId
+</th>
+<th style="text-align:left;">
+rating
+</th>
+<th style="text-align:left;">
+timestamp
+</th>
+<th style="text-align:left;">
+title
+</th>
+<th style="text-align:left;">
+genres
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+Min. : 1
+</td>
+<td style="text-align:left;">
+Min. : 1
+</td>
+<td style="text-align:left;">
+Min. :0.500
+</td>
+<td style="text-align:left;">
+Min. :7.897e+08
+</td>
+<td style="text-align:left;">
+Length:9000055
+</td>
+<td style="text-align:left;">
+Length:9000055
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+1st Qu.:18124
+</td>
+<td style="text-align:left;">
+1st Qu.: 648
+</td>
+<td style="text-align:left;">
+1st Qu.:3.000
+</td>
+<td style="text-align:left;">
+1st Qu.:9.468e+08
+</td>
+<td style="text-align:left;">
+Class :character
+</td>
+<td style="text-align:left;">
+Class :character
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+Median :35738
+</td>
+<td style="text-align:left;">
+Median : 1834
+</td>
+<td style="text-align:left;">
+Median :4.000
+</td>
+<td style="text-align:left;">
+Median :1.035e+09
+</td>
+<td style="text-align:left;">
+Mode :character
+</td>
+<td style="text-align:left;">
+Mode :character
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+Mean :35870
+</td>
+<td style="text-align:left;">
+Mean : 4122
+</td>
+<td style="text-align:left;">
+Mean :3.512
+</td>
+<td style="text-align:left;">
+Mean :1.033e+09
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+3rd Qu.:53607
+</td>
+<td style="text-align:left;">
+3rd Qu.: 3626
+</td>
+<td style="text-align:left;">
+3rd Qu.:4.000
+</td>
+<td style="text-align:left;">
+3rd Qu.:1.127e+09
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+Max. :71567
+</td>
+<td style="text-align:left;">
+Max. :65133
+</td>
+<td style="text-align:left;">
+Max. :5.000
+</td>
+<td style="text-align:left;">
+Max. :1.231e+09
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+</tr>
+</tbody>
+</table>
 
 The table below outlines the variables present in the dataset :
 
-| Variable         | Description                                    |
-|------------------|------------------------------------------------|
-| `userId`         | User ID (anonymised)                       |
-| `movieId`        | Unique movie ID                            |
-| `rating`         | Rating from 0 to 5 including half numbers (1.5, 2.5...) |
-| `timestamp`      | Date and time the rating was created. It is stored as a number of seconds since the 1st of January 1970          |
-| `title`          | Title of the movie with the year it was released, in the form "name (year)"          |
-| `genres`         | Genre of the movie (action, drama...)          |
+<table>
+<colgroup>
+<col style="width: 27%" />
+<col style="width: 72%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Variable</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>userId</code></td>
+<td>User ID (anonymised)</td>
+</tr>
+<tr class="even">
+<td><code>movieId</code></td>
+<td>Unique movie ID</td>
+</tr>
+<tr class="odd">
+<td><code>rating</code></td>
+<td>Rating from 0 to 5 including half numbers (1.5, 2.5…)</td>
+</tr>
+<tr class="even">
+<td><code>timestamp</code></td>
+<td>Date and time the rating was created. It is stored as a number of
+seconds since the 1st of January 1970</td>
+</tr>
+<tr class="odd">
+<td><code>title</code></td>
+<td>Title of the movie with the year it was released, in the form “name
+(year)”</td>
+</tr>
+<tr class="even">
+<td><code>genres</code></td>
+<td>Genre of the movie (action, drama…)</td>
+</tr>
+</tbody>
+</table>
 
-From the dataset, we can determine the total counts of movies, users, and ratings :
+From the dataset, we can determine the total counts of movies, users,
+and ratings :
 
-```{r, echo=FALSE}
-data_summary <- data.frame(Dataset = c("edx", "final_holdout_test"),
-                           Type = c("Train", "Test"),
-                           Movies = c(comma(n_distinct(edx$movieId)), comma(n_distinct(final_holdout_test$movieId))),
-                           Users = c(comma(n_distinct(edx$userId)), comma(n_distinct(final_holdout_test$userId))),
-                           Ratings = c(comma(nrow(edx)), comma(nrow(final_holdout_test))))
-kable(data_summary) %>% kable_styling(full_width = F) %>% row_spec(0, background = "gray!20")
-```
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;background-color: gray!20 !important;">
+Dataset
+</th>
+<th style="text-align:left;background-color: gray!20 !important;">
+Type
+</th>
+<th style="text-align:left;background-color: gray!20 !important;">
+Movies
+</th>
+<th style="text-align:left;background-color: gray!20 !important;">
+Users
+</th>
+<th style="text-align:left;background-color: gray!20 !important;">
+Ratings
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+edx
+</td>
+<td style="text-align:left;">
+Train
+</td>
+<td style="text-align:left;">
+10,677
+</td>
+<td style="text-align:left;">
+69,878
+</td>
+<td style="text-align:left;">
+9,000,055
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+final\_holdout\_test
+</td>
+<td style="text-align:left;">
+Test
+</td>
+<td style="text-align:left;">
+9,809
+</td>
+<td style="text-align:left;">
+68,534
+</td>
+<td style="text-align:left;">
+999,999
+</td>
+</tr>
+</tbody>
+</table>
 
-The analysis reveals that approximately 10,000 movies were rated by 70,000 users, resulting in a total of 9,000,000 ratings.
+The analysis reveals that approximately 10,000 movies were rated by
+70,000 users, resulting in a total of 9,000,000 ratings.
 
-The pair (movieId, userId) can be used as a primary key, as each user has rated a specific movie only once :
+The pair (movieId, userId) can be used as a primary key, as each user
+has rated a specific movie only once :
 
-```{r, echo=FALSE}
-data_summary <- data.frame(Dataset = c("edx", "final_holdout_test", "Overlap"),
-                           MovieUserId = c(comma(nrow(edx_unique)),
-                                           comma(nrow(test_unique)),
-                                           comma(nrow(overlap))),
-                           Ratings = c(comma(nrow(edx)), comma(nrow(final_holdout_test)), ""))
-names(data_summary)[2] <- "(movieId, userId)"
-kable(data_summary) %>% kable_styling(full_width = F) %>% row_spec(0, background = "gray!20")
-```
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;background-color: gray!20 !important;">
+Dataset
+</th>
+<th style="text-align:left;background-color: gray!20 !important;">
+(movieId, userId)
+</th>
+<th style="text-align:left;background-color: gray!20 !important;">
+Ratings
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+edx
+</td>
+<td style="text-align:left;">
+9,000,055
+</td>
+<td style="text-align:left;">
+9,000,055
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+final\_holdout\_test
+</td>
+<td style="text-align:left;">
+999,999
+</td>
+<td style="text-align:left;">
+999,999
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Overlap
+</td>
+<td style="text-align:left;">
+0
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+</tbody>
+</table>
 
-We can also observe that a rating given by a user for a specific movie cannot appear in both the training and test datasets.
-
-\newpage
+We can also observe that a rating given by a user for a specific movie
+cannot appear in both the training and test datasets.
 
 ## Data Transformation
 
-The first few entries of the edx dataset suggest potential transformations for enhanced analysis :
+The first few entries of the edx dataset suggest potential
+transformations for enhanced analysis :
 
-```{r, echo=FALSE}
-data_summary <- head(edx)
-# Replace '|' with ';' in the genres column
-data_summary$genres <- gsub("\\|", ";", data_summary$genres)
-kable(data_summary) %>% kable_styling(font_size = 9)
-```
+<table class="table" style="font-size: 9px; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+</th>
+<th style="text-align:right;">
+userId
+</th>
+<th style="text-align:right;">
+movieId
+</th>
+<th style="text-align:right;">
+rating
+</th>
+<th style="text-align:right;">
+timestamp
+</th>
+<th style="text-align:left;">
+title
+</th>
+<th style="text-align:left;">
+genres
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+122
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+838985046
+</td>
+<td style="text-align:left;">
+Boomerang (1992)
+</td>
+<td style="text-align:left;">
+Comedy;Romance
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+185
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+838983525
+</td>
+<td style="text-align:left;">
+Net, The (1995)
+</td>
+<td style="text-align:left;">
+Action;Crime;Thriller
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+4
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+292
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+838983421
+</td>
+<td style="text-align:left;">
+Outbreak (1995)
+</td>
+<td style="text-align:left;">
+Action;Drama;Sci-Fi;Thriller
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+5
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+316
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+838983392
+</td>
+<td style="text-align:left;">
+Stargate (1994)
+</td>
+<td style="text-align:left;">
+Action;Adventure;Sci-Fi
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+6
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+329
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+838983392
+</td>
+<td style="text-align:left;">
+Star Trek: Generations (1994)
+</td>
+<td style="text-align:left;">
+Action;Adventure;Drama;Sci-Fi
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+7
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+355
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+838984474
+</td>
+<td style="text-align:left;">
+Flintstones, The (1994)
+</td>
+<td style="text-align:left;">
+Children;Comedy;Fantasy
+</td>
+</tr>
+</tbody>
+</table>
 
-The timestamp variable can be decomposed into various components, including the day of the week, day, month, year, and hour (minutes and seconds are likely unnecessary for our analysis).
+The timestamp variable can be decomposed into various components,
+including the day of the week, day, month, year, and hour (minutes and
+seconds are likely unnecessary for our analysis).
 
-Additionally, the title variable contains the release year formatted as "title (year)." We can extract both the title without the year and the year of release.
+Additionally, the title variable contains the release year formatted as
+“title (year).” We can extract both the title without the year and the
+year of release.
 
-While we can also separate the genres, we are not permitted to add rows to the dataset, only columns, so this transformation is not feasible.
+While we can also separate the genres, we are not permitted to add rows
+to the dataset, only columns, so this transformation is not feasible.
 
+The table below displays the modified edx dataset, which retains the
+genres column but omits it from this view due to space constraints :
 
-The table below displays the modified edx dataset, which retains the genres column but omits it from this view due to space constraints :
+<table class="table" style="font-size: 9px; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+userId
+</th>
+<th style="text-align:right;">
+movieId
+</th>
+<th style="text-align:right;">
+rating
+</th>
+<th style="text-align:right;">
+t\_day\_of\_week
+</th>
+<th style="text-align:right;">
+t\_day
+</th>
+<th style="text-align:right;">
+t\_month
+</th>
+<th style="text-align:right;">
+t\_year
+</th>
+<th style="text-align:right;">
+t\_hour
+</th>
+<th style="text-align:left;">
+title
+</th>
+<th style="text-align:right;">
+year
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+122
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:right;">
+1996
+</td>
+<td style="text-align:right;">
+11
+</td>
+<td style="text-align:left;">
+Boomerang
+</td>
+<td style="text-align:right;">
+1992
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+185
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:right;">
+1996
+</td>
+<td style="text-align:right;">
+10
+</td>
+<td style="text-align:left;">
+Net, The
+</td>
+<td style="text-align:right;">
+1995
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+292
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:right;">
+1996
+</td>
+<td style="text-align:right;">
+10
+</td>
+<td style="text-align:left;">
+Outbreak
+</td>
+<td style="text-align:right;">
+1995
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+316
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:right;">
+1996
+</td>
+<td style="text-align:right;">
+10
+</td>
+<td style="text-align:left;">
+Stargate
+</td>
+<td style="text-align:right;">
+1994
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+329
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:right;">
+1996
+</td>
+<td style="text-align:right;">
+10
+</td>
+<td style="text-align:left;">
+Star Trek: Generations
+</td>
+<td style="text-align:right;">
+1994
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+355
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:right;">
+1996
+</td>
+<td style="text-align:right;">
+11
+</td>
+<td style="text-align:left;">
+Flintstones, The
+</td>
+<td style="text-align:right;">
+1994
+</td>
+</tr>
+</tbody>
+</table>
 
-```{r, echo=FALSE}
-data_summary <- head(edx_movies %>% select(userId, movieId,
-                                           rating, t_day_of_week,
-                                           t_day, t_month,
-                                           t_year, t_hour,
-                                           title, year))
-kable(data_summary) %>% kable_styling(font_size = 9)
-```
-
-This allows us to focus on the other relevant attributes for analysis while keeping the genres information in the dataset.
-
-\newpage
+This allows us to focus on the other relevant attributes for analysis
+while keeping the genres information in the dataset.
 
 ## Data Analysis
 
 ### Movies
 
-The top five movies with the highest number of ratings each received 30,000 ratings, indicating that half of the users rated these films :
+The top five movies with the highest number of ratings each received
+30,000 ratings, indicating that half of the users rated these films :
 
-```{r, echo=FALSE}
-# Top 5 movies with the highest number of ratings.
-# We need to reformat the year as character so it is not displayed with a comma (1,994)
-kable(
-  top_n(
-    list_movies %>% mutate(year = as.character(year)) %>% select(index, title, year, count),
-    5, count),
-  format.args = list(big.mark = ",")) %>%
-  kable_styling(full_width = F) %>% row_spec(0, background = "gray!20", extra_css = "padding: 0;")
-```
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;background-color: gray!20 !important;padding: 0;">
+index
+</th>
+<th style="text-align:left;background-color: gray!20 !important;padding: 0;">
+title
+</th>
+<th style="text-align:left;background-color: gray!20 !important;padding: 0;">
+year
+</th>
+<th style="text-align:right;background-color: gray!20 !important;padding: 0;">
+count
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:left;">
+Pulp Fiction
+</td>
+<td style="text-align:left;">
+1994
+</td>
+<td style="text-align:right;">
+31,362
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:left;">
+Forrest Gump
+</td>
+<td style="text-align:left;">
+1994
+</td>
+<td style="text-align:right;">
+31,079
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:left;">
+Silence of the Lambs, The
+</td>
+<td style="text-align:left;">
+1991
+</td>
+<td style="text-align:right;">
+30,382
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:left;">
+Jurassic Park
+</td>
+<td style="text-align:left;">
+1993
+</td>
+<td style="text-align:right;">
+29,360
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+Shawshank Redemption, The
+</td>
+<td style="text-align:left;">
+1994
+</td>
+<td style="text-align:right;">
+28,015
+</td>
+</tr>
+</tbody>
+</table>
 
 ### Movie Ratings Visualization
 
-The left figure illustrates that a small number of movies received the majority of ratings, while most received very few.
+The left figure illustrates that a small number of movies received the
+majority of ratings, while most received very few.
 
-To better highlight this trend, we can apply a log10 transformation to the y-axis. This transformation reveals that although most movies garnered at least 10 ratings, only half exceeded 100 ratings, as demonstrated in the right figure :
+To better highlight this trend, we can apply a log10 transformation to
+the y-axis. This transformation reveals that although most movies
+garnered at least 10 ratings, only half exceeded 100 ratings, as
+demonstrated in the right figure :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of ratings / Movie", fig.height=2}
-plot_grid(
-  list_movies %>% sample_n(1000) %>% ggplot(aes(x = index, y = count)) +
-    geom_area(color = "darkblue", fill="darkblue", alpha = 0.1) +
-    theme_minimal() +
-    labs(x = "Movie", y = "Number of Ratings"),
-  list_movies %>% sample_n(1000) %>% ggplot(aes(x = index, y = count)) +
-    geom_area(color = "darkblue", fill="darkblue", alpha = 0.1) +
-    theme_minimal() +
-    labs(x = "Movie", y = "Number of Ratings (log10)") +
-    scale_y_log10(),
-  ncol = 2)
-```
-
-\newpage
+<img src="MovieLensMD_files/figure-markdown_strict/unnamed-chunk-8-1.png" alt="Number of ratings / Movie"  />
+<p class="caption">
+Number of ratings / Movie
+</p>
 
 ### Movie Release and Ratings Trends
 
-The figure on the left shows that the number of movies released per year increased significantly during the 1980s.
+The figure on the left shows that the number of movies released per year
+increased significantly during the 1980s.
 
-Similarly, the figure on the right demonstrates that the number of ratings received per year for newly released movies also rose during this period. However, it appears that older movies received significantly fewer ratings compared to more recent releases :
+Similarly, the figure on the right demonstrates that the number of
+ratings received per year for newly released movies also rose during
+this period. However, it appears that older movies received
+significantly fewer ratings compared to more recent releases :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of Movies Released per Year and Number of Ratings per Year", fig.height=2}
-plot_grid(
-  list_movies %>%
-    group_by(year) %>%
-    summarise(total_movies = n()) %>%
-    ggplot(aes(x = year, y = total_movies)) +
-    geom_bar(stat = "identity", fill="darkblue", alpha = 0.8) +
-    labs(x = "Year Movie Released", y = "Number of Movies") +
-    theme_minimal(),
-  list_movies %>%
-    ggplot(aes(x = year, y = count)) +
-    geom_bar(stat = "identity", fill="darkblue", alpha = 0.8) +
-    scale_y_continuous(labels = label_number(scale = 1e-3, suffix = "k")) +
-    labs(x = "Year Movie Released", y = "Number of Ratings") +
-    theme_minimal(),
-  ncol = 2)
-```
+<img src="MovieLensMD_files/figure-markdown_strict/unnamed-chunk-9-1.png" alt="Number of Movies Released per Year and Number of Ratings per Year"  />
+<p class="caption">
+Number of Movies Released per Year and Number of Ratings per Year
+</p>
 
 ### Users
 
-As previously mentioned, the edx dataset contains approximately 70,000 users. Below are the top five users with the highest number of ratings :
+As previously mentioned, the edx dataset contains approximately 70,000
+users. Below are the top five users with the highest number of ratings :
 
-```{r, echo=FALSE}
-kable(top_n(list_users, 5, count), format.args = list(big.mark = ",")) %>%
-  kable_styling(full_width = F)
-```
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+index
+</th>
+<th style="text-align:right;">
+count
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+6,616
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+6,360
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+4,648
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+4,036
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+4,023
+</td>
+</tr>
+</tbody>
+</table>
 
-\newpage
+A small number of users account for a large proportion of ratings, as
+shown in the figure on the left, which illustrates that the majority of
+ratings come from a minority of users.
 
-A small number of users account for a large proportion of ratings, as shown in the figure on the left, which illustrates that the majority of ratings come from a minority of users.
+By applying a log10 transformation to the y-axis, we can see that all
+users rated at least 10 movies, while only one-third rated more than 100
+movies, as depicted in the figure on the right :
 
-By applying a log10 transformation to the y-axis, we can see that all users rated at least 10 movies, while only one-third rated more than 100 movies, as depicted in the figure on the right :
-
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of ratings / User", fig.height=2}
-plot_grid(
-  list_users %>% sample_n(1000) %>% ggplot(aes(x = index, y = count)) +
-    geom_area(color = "darkgreen", fill="darkgreen", alpha = 0.1) +
-    theme_minimal() +
-    labs(x = "User", y = "Number of Ratings"),
-  list_users %>% sample_n(1000) %>% ggplot(aes(x = index, y = count)) +
-    geom_area(color = "darkgreen", fill="darkgreen", alpha = 0.1) +
-    theme_minimal() +
-    labs(x = "User", y = "Number of Ratings (log10)") +
-    scale_y_log10(),
-  ncol = 2)
-```
+<img src="MovieLensMD_files/figure-markdown_strict/unnamed-chunk-11-1.png" alt="Number of ratings / User"  />
+<p class="caption">
+Number of ratings / User
+</p>
 
 ### Ratings
 
-The figures below demonstrate that the distribution of ratings can be approximated as normal when rounded :
+The figures below demonstrate that the distribution of ratings can be
+approximated as normal when rounded :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of ratings", fig.height=2}
-plot_grid(
-  ggplot(edx_movies, aes(x = rating)) +
-    geom_histogram(fill="darkred", alpha = 0.8, position="dodge", bins = 30) +
-    scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top") +
-    labs(x = "Rating", y = "Count"),
-  ggplot(edx_movies, aes(x = floor(rating))) +
-    geom_histogram(fill="darkred", alpha = 0.8, position="dodge", bins = 30) +
-    scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top") +
-    labs(x = "Rating (Rounded)", y = "Count"),
-  ncol = 2)
-```
+<img src="MovieLensMD_files/figure-markdown_strict/unnamed-chunk-12-1.png" alt="Number of ratings"  />
+<p class="caption">
+Number of ratings
+</p>
 
 The table below displays the average and standard deviation :
 
-```{r, echo=FALSE}
-data_summary <- data.frame(Type = c("Average", "Standard Deviation"),
-                           Value = c(mu, sd))
-kable(data_summary) %>% kable_styling(full_width = F)
-```
-
-\newpage
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+Type
+</th>
+<th style="text-align:right;">
+Value
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Average
+</td>
+<td style="text-align:right;">
+3.512465
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Standard Deviation
+</td>
+<td style="text-align:right;">
+1.060331
+</td>
+</tr>
+</tbody>
+</table>
 
 ### Variables
 
 List of variables and their distinct value counts :
 
-```{r, echo=FALSE}
-# List of variables and number of distinct values
-data_summary <- edx_movies %>%
-  select(userId, movieId, t_day_of_week, t_day,
-         t_month, t_year, t_hour, title, year, genres) %>%
-  summarise(across(everything(), ~ n_distinct(.))) %>%
-  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Distinct_Count") %>%
-  arrange(desc(Distinct_Count))
-kable(data_summary, linesep = "", format.args = list(big.mark = ",")) %>% kable_styling()
-```
+<table class="table" style="margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+Variable
+</th>
+<th style="text-align:right;">
+Distinct\_Count
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+userId
+</td>
+<td style="text-align:right;">
+69,878
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+movieId
+</td>
+<td style="text-align:right;">
+10,677
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+title
+</td>
+<td style="text-align:right;">
+10,407
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+genres
+</td>
+<td style="text-align:right;">
+797
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+year
+</td>
+<td style="text-align:right;">
+94
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+t\_day
+</td>
+<td style="text-align:right;">
+31
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+t\_hour
+</td>
+<td style="text-align:right;">
+24
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+t\_year
+</td>
+<td style="text-align:right;">
+15
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+t\_month
+</td>
+<td style="text-align:right;">
+12
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+t\_day\_of\_week
+</td>
+<td style="text-align:right;">
+7
+</td>
+</tr>
+</tbody>
+</table>
 
 ### Distribution of Average Ratings per Variable
 
-We will consider only those variables that have a sufficient number of distinct values : userId, movieId, title and genres.  
+We will consider only those variables that have a sufficient number of
+distinct values : userId, movieId, title and genres.
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Distribution of ratings", fig.height=4}
-plot_grid(
-  ggplot(avg_rating_per_user, aes(x = avg_rating)) +
-    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
-    labs(title = "User", x = "Rating", y = "Count"),
+<img src="MovieLensMD_files/figure-markdown_strict/unnamed-chunk-15-1.png" alt="Distribution of ratings"  />
+<p class="caption">
+Distribution of ratings
+</p>
 
-  ggplot(avg_rating_per_movie, aes(x = avg_rating)) +
-    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
-    labs(title = "Movie", x = "Rating", y = "Count"),
-  
-  ggplot(avg_rating_per_title, aes(x = avg_rating)) +
-    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
-    labs(title = "Title", x = "Rating", y = "Count"),
-  
-  ggplot(avg_rating_per_genres, aes(x = avg_rating)) +
-    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
-    labs(title = "Genres", x = "Rating", y = "Count"),
-  
-  ncol = 2, align = 'hv', rel_heights = c(2, 2, 2))
-```
+We will now compare Title against Movie as the graphs look very similar
+:
 
-\newpage
+<img src="MovieLensMD_files/figure-markdown_strict/unnamed-chunk-16-1.png" alt="Comparison of the Distribution of ratings"  />
+<p class="caption">
+Comparison of the Distribution of ratings
+</p>
 
-We will now compare Title against Movie as the graphs look very similar :
-
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Comparison of the Distribution of ratings", fig.width=4, fig.height=3}
-ggplot(bind_rows(avg_rating_per_movie, avg_rating_per_title), aes(x = avg_rating, fill = source)) +
-  geom_histogram(position = "identity", alpha = 0.8, bins = 30) +
-  scale_color_brewer(palette="Accent") + 
-  labs(x = "Rating", y = "Count") +
-  theme_minimal() + theme(legend.position = "top") +
-  scale_fill_manual(values = c("Movie" = "darkred", "Title" = "grey"))
-```
-
-For the upcoming analysis, we will focus exclusively on the movie, user, and genres variables, which have a high number of unique values, while excluding the title variable.
+For the upcoming analysis, we will focus exclusively on the movie, user,
+and genres variables, which have a high number of unique values, while
+excluding the title variable.
 
 ### Variables with Low Distinct Values
 
-We will now examine variables that have a low number of distinct values, specifically the timestamp information and the year of release.
+We will now examine variables that have a low number of distinct values,
+specifically the timestamp information and the year of release.
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Distribution of ratings per variable", fig.height=3}
-plot_grid(
-  ggplot(avg_rating_per_day_of_week, aes(x = t_day_of_week)) +
-    geom_ribbon(aes(ymin = min_rating, ymax = max_rating), fill = "darkred", alpha = 0.2) +
-    geom_line(aes(y = min_rating), color = "darkred", linetype = "solid") +
-    geom_line(aes(y = max_rating), color = "darkred", linetype = "solid") +
-    geom_line(aes(y = avg_rating), color = "darkred", size = 1.2, linetype = "solid") +
-    labs(x = "Day of the Week", y = "Rating") +
-    scale_y_continuous(limits = c(0, 5)) +
-    theme_minimal() + theme(text = element_text(size = 9)),
+<img src="MovieLensMD_files/figure-markdown_strict/unnamed-chunk-17-1.png" alt="Distribution of ratings per variable"  />
+<p class="caption">
+Distribution of ratings per variable
+</p>
 
-  ggplot(avg_rating_per_day, aes(x = t_day)) +
-    geom_ribbon(aes(ymin = min_rating, ymax = max_rating), fill = "darkred", alpha = 0.2) +
-    geom_line(aes(y = min_rating), color = "darkred", linetype = "solid") +
-    geom_line(aes(y = max_rating), color = "darkred", linetype = "solid") +
-    geom_line(aes(y = avg_rating), color = "darkred", size = 1.2, linetype = "solid") +
-    labs(x = "Day", y = "Rating") +
-    scale_y_continuous(limits = c(0, 5)) +
-    theme_minimal() + theme(text = element_text(size = 9)),
-
-  ggplot(avg_rating_per_month, aes(x = t_month)) +
-    geom_ribbon(aes(ymin = min_rating, ymax = max_rating), fill = "darkred", alpha = 0.2) +
-    geom_line(aes(y = min_rating), color = "darkred", linetype = "solid") +
-    geom_line(aes(y = max_rating), color = "darkred", linetype = "solid") +
-    geom_line(aes(y = avg_rating), color = "darkred", size = 1.2, linetype = "solid") +
-    labs(x = "Month", y = "Rating") +
-    scale_y_continuous(limits = c(0, 5)) +
-    theme_minimal() + theme(text = element_text(size = 9)),
-
-  ggplot(avg_rating_per_t_year, aes(x = t_year)) +
-    geom_ribbon(aes(ymin = min_rating, ymax = max_rating), fill = "darkred", alpha = 0.2) +
-    geom_line(aes(y = min_rating), color = "darkred", linetype = "solid") +
-    geom_line(aes(y = max_rating), color = "darkred", linetype = "solid") +
-    geom_line(aes(y = avg_rating), color = "darkred", size = 1.2, linetype = "solid") +
-    labs(x = "Year (timestamp)", y = "Rating") +
-    scale_y_continuous(limits = c(0, 5)) +
-    theme_minimal() + theme(text = element_text(size = 9)),
-  
-  ggplot(avg_rating_per_hour, aes(x = t_hour)) +
-    geom_ribbon(aes(ymin = min_rating, ymax = max_rating), fill = "darkred", alpha = 0.2) +
-    geom_line(aes(y = min_rating), color = "darkred", linetype = "solid") +
-    geom_line(aes(y = max_rating), color = "darkred", linetype = "solid") +
-    geom_line(aes(y = avg_rating), color = "darkred", size = 1.2, linetype = "solid") +
-    labs(x = "Hour", y = "Rating") +
-    scale_y_continuous(limits = c(0, 5)) +
-    theme_minimal() + theme(text = element_text(size = 9)),
-  
-  ggplot(avg_rating_per_year, aes(x = year)) +
-    geom_ribbon(aes(ymin = min_rating, ymax = max_rating), fill = "darkred", alpha = 0.2) +
-    geom_line(aes(y = min_rating), color = "darkred", linetype = "solid") +
-    geom_line(aes(y = max_rating), color = "darkred", linetype = "solid") +
-    geom_line(aes(y = avg_rating), color = "darkred", size = 1.2, linetype = "solid") +
-    labs(x = "Year (release)", y = "Rating") +
-    scale_y_continuous(limits = c(0, 5)) +
-    theme_minimal() + theme(text = element_text(size = 9)),
-  
-  ncol = 3, align = 'hv', rel_heights = c(2, 2, 2))
-```
-
-As observed, only the timestamp (year) and year of release exhibit sufficient variation (considering both the mean and minimum values for the timestamp) to be included in the forthcoming analysis.
+As observed, only the timestamp (year) and year of release exhibit
+sufficient variation (considering both the mean and minimum values for
+the timestamp) to be included in the forthcoming analysis.
 
 # Predictions
 
-Given the big number of ratings (9 millions) we won't use any training algorithm such as lm as they would require an extensive time to compute. We will try to estimate the ratings using average and biases.
+Given the big number of ratings (9 millions) we won’t use any training
+algorithm such as lm as they would require an extensive time to compute.
+We will try to estimate the ratings using average and biases.
 
-The goal of this exercise is to get the minimum root mean square error (RMSE). The RMSE can be defined as :
-
-\begin{equation}
-\Large
-RMSE = \sqrt{\frac{1}{N} \sum_{i} \left( \hat{y}_{i} - y_{i} \right)^{2}}
-\end{equation}
+The goal of this exercise is to get the minimum root mean square error
+(RMSE). The RMSE can be defined as :
 
 where :  
-\( y_{i} \) : The observed values (actual ratings).  
-\( \hat{y}_{i} \) : The predicted values (model outputs).  
-\( N \): The number of observations.  
+*y*<sub>*i*</sub> : The observed values (actual ratings).  
+*ŷ*<sub>*i*</sub> : The predicted values (model outputs).  
+*N*: The number of observations.
 
 ## Target
 
-The target RMSE we want to achieve (get a lower value) is : RMSE = 0.86490
+The target RMSE we want to achieve (get a lower value) is : RMSE =
+0.86490
 
 ## Average
 
-The average for the predictions is : $\mu$ = 3.512465
-If we choose a constant number for the predictions, then $\mu$ will be the one which will give the minimum RMSE :
-
-\begin{equation}
-\Large
-\hat{y}_{i} = \mu
-\end{equation}
+The average for the predictions is : *μ* = 3.512465 If we choose a
+constant number for the predictions, then *μ* will be the one which will
+give the minimum RMSE :
 
 The RMSE will then be : RMSE = 1.060331
 
 The error can be defined as :
 
-\begin{equation}
-\Large
-\epsilon_{i} = \hat{y}_{i} - y_{i}
-\end{equation}
+The following plots illustrate the distribution of ratings in descending
+order, with the average value represented by a horizontal orange line.
+The plot on the right depicts the distribution of errors :
 
-\newpage
-
-The following plots illustrate the distribution of ratings in descending order, with the average value represented by a horizontal orange line. The plot on the right depicts the distribution of errors :
-
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Prediction (average)", fig.height=2}
-plot_grid(
-  edx_movies %>% select(rating) %>% sample_n(10000) %>% arrange(desc(rating)) %>%
-  mutate(index = row_number()) %>%
-  ggplot(aes(x = index, y = rating)) +
-  geom_area(color = "darkred", fill="darkred", alpha = 0.1) +
-  geom_hline(yintercept = mu, color = "orange", linetype = "dashed", size = 1) +
-  theme_minimal() +
-  labs(x = "Index", y = "Rating"),
-  
-  ggplot(edx_movies, aes(x = rating - mu)) +
-  geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-  scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
-  scale_color_brewer(palette="Accent") + 
-  theme_minimal() + theme(legend.position = "top") +
-  labs(x = "Error", y = "Number of Ratings"),
-  
-  ncol = 2, align = 'hv', rel_heights = c(2, 2))
-```
+<img src="MovieLensMD_files/figure-markdown_strict/unnamed-chunk-18-1.png" alt="Prediction (average)"  />
+<p class="caption">
+Prediction (average)
+</p>
 
 ## Bias (simple)
 
 The next step is to introduce a bias so the prediction can be written :
-\begin{equation}
-\Large
-\hat{y}_{i} = \mu + b_{v,i}
-\end{equation}
 
 with :
-\begin{equation}
-\Large
-b_{v,i} = \frac{1}{N} \sum_{j} \left( y_{j} - \mu \right)
-\end{equation}
 
 where :  
-\( \hat{y}_{i} \) : The predicted values for a variable v (model outputs).  
-\( b_{v,i} \) : The bias for a variable v.  
+*ŷ*<sub>*i*</sub> : The predicted values for a variable v (model
+outputs).  
+*b*<sub>*v*, *i*</sub> : The bias for a variable v.
 
-\newpage
+The figure below illustrates our objective. For each movie (or user or
+genre), we calculate the average rating. In this example, there are
+three movies, each represented by different colors, with individual
+points indicating their ratings. The line or segment displays the
+average rating for each specific movie (or user or genre). The orange
+line shows the global average :
 
-The figure below illustrates our objective. For each movie (or user or genre), we calculate the average rating. In this example, there are three movies, each represented by different colors, with individual points indicating their ratings. The line or segment displays the average rating for each specific movie (or user or genre). The orange line shows the global average :
+<img src="MovieLensMD_files/figure-markdown_strict/unnamed-chunk-19-1.png" alt="Bias"  />
+<p class="caption">
+Bias
+</p>
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Bias", fig.width=4, fig.height=3}
-plot_bias + 
-  geom_segment(data = lines_data, 
-               aes(x = x_start, xend = x_end, y = avg_rating, yend = avg_rating, color = as.factor(movieId)),
-               linetype = "solid", size = 2) +
-  geom_hline(yintercept = mu, color = "orange", linetype = "dashed", size = 1)
-```
+During the prediction process, we will default to the overall average
+rating. We will then adjust this by adding the difference between the
+average rating for each movie (or user or genre) and the global average
+*μ*, with this difference representing the bias.
 
-During the prediction process, we will default to the overall average rating. We will then adjust this by adding the difference between the average rating for each movie (or user or genre) and the global average \(\mu\), with this difference representing the bias.
+If the same movie (or user or genre) appears in the test dataset, we
+will use its average rating. Otherwise, we will predict the global
+average from the training dataset. This approach should result in a
+lower RMSE.
 
-If the same movie (or user or genre) appears in the test dataset, we will use its average rating. Otherwise, we will predict the global average from the training dataset. This approach should result in a lower RMSE.
+The table below presents the RMSE values for different prediction types
+used in our analysis : average and bias for Movie, User, Genres,
+Year(timestamp) and Year (release).
 
-The table below presents the RMSE values for different prediction types used in our analysis : average and bias for Movie, User, Genres, Year(timestamp) and Year (release).
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+Type
+</th>
+<th style="text-align:right;">
+RMSE
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Target
+</td>
+<td style="text-align:right;">
+0.8649000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Average
+</td>
+<td style="text-align:right;">
+1.0603313
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Movie
+</td>
+<td style="text-align:right;">
+0.9423475
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+User
+</td>
+<td style="text-align:right;">
+0.9700086
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Genres
+</td>
+<td style="text-align:right;">
+1.0179838
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Year (timestamp)
+</td>
+<td style="text-align:right;">
+1.0585990
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Year (release)
+</td>
+<td style="text-align:right;">
+1.0493440
+</td>
+</tr>
+</tbody>
+</table>
 
-```{r, echo=FALSE}
-kable(results %>%
-  filter(Type %in% c("Target", "Average", "Movie", "User", "Genres", "Year (timestamp)", "Year (release)"))) %>%
-  kable_styling(full_width = F)
-```
+-   **Target**: The RMSE for the target model is 0.8649000, indicating
+    the maximum value of the RMSE we want to get.
+-   **Average**: The baseline RMSE calculated using the global average
+    is 1.0603313, which serves as a reference point.
+-   **Movie**: When predictions are made based on individual movie
+    averages, the RMSE is 0.9423475, showing improved accuracy compared
+    to the average.
+-   **User**: Prediction based on user-specific averages yields an RMSE
+    of 0.9700086, which is slightly higher than the movie-based
+    predictions.
+-   **Genres**: Using genre averages results in an RMSE of 1.0179838,
+    indicating diminished accuracy compared to both movie and user
+    averages.
+-   **Year (timestamp)**: The RMSE for the year based on timestamp data
+    stands at 1.0585990, showing median accuracy.
+-   **Year (release)**: Similarly, predictions based on the release year
+    have an RMSE of 1.0493440, which also indicates average performance.
 
-* **Target**: The RMSE for the target model is 0.8649000, indicating the maximum value of the RMSE we want to get.
-* **Average**: The baseline RMSE calculated using the global average is 1.0603313, which serves as a reference point.
-* **Movie**: When predictions are made based on individual movie averages, the RMSE is 0.9423475, showing improved accuracy compared to the average.
-* **User**: Prediction based on user-specific averages yields an RMSE of 0.9700086, which is slightly higher than the movie-based predictions.
-* **Genres**: Using genre averages results in an RMSE of 1.0179838, indicating diminished accuracy compared to both movie and user averages.
-* **Year (timestamp)**: The RMSE for the year based on timestamp data stands at 1.0585990, showing median accuracy.
-* **Year (release)**: Similarly, predictions based on the release year have an RMSE of 1.0493440, which also indicates average performance.
+In summary, the table demonstrates that the predictions based on movies
+yield the best results among the other features considered.
 
-In summary, the table demonstrates that the predictions based on movies yield the best results among the other features considered.
+The following four plots illustrate the distribution of errors for the
+biases associated with movies, users, genres, and the year (timestamp).
+We have excluded the release year, as its RMSE is very similar to that
+of the timestamp year. Ideally, we want the errors to be as close to
+zero as possible. The plots clearly indicate that the timestamp year
+yields the highest errors, while the genre bias performs better but
+still falls short. The movie bias demonstrates the best performance,
+followed closely by the user bias.
 
-The following four plots illustrate the distribution of errors for the biases associated with movies, users, genres, and the year (timestamp). We have excluded the release year, as its RMSE is very similar to that of the timestamp year. Ideally, we want the errors to be as close to zero as possible. The plots clearly indicate that the timestamp year yields the highest errors, while the genre bias performs better but still falls short. The movie bias demonstrates the best performance, followed closely by the user bias.
+<img src="MovieLensMD_files/figure-markdown_strict/unnamed-chunk-21-1.png" alt="Distribution of error (Bias)"  />
+<p class="caption">
+Distribution of error (Bias)
+</p>
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Distribution of error (Bias)", fig.height=4}
-# Distribution of the error for the bias :
-plot_grid(
-  ggplot(edx_movies, aes(x = rating - mu - b_m)) +
-    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-    scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top") +
-    labs(x = "Error", y = "Movie"),
-  
-  ggplot(edx_movies, aes(x = rating - mu - b_u)) +
-    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-    scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top") +
-    labs(x = "Error", y = "User"),
-  
-  ggplot(edx_movies, aes(x = rating - mu - b_g)) +
-    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-    scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top") +
-    labs(x = "Error", y = "Genres"),
-  
-  ggplot(edx_movies, aes(x = rating - mu - b_ty)) +
-    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-    scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top") +
-    labs(x = "Error", y = "Year (timestamp)"),
-  
-  ncol = 2, align = 'hv', rel_heights = c(2, 2, 2))
-```
+As an example, some predictions for the movie bias are shown in the
+table below :
 
-As an example, some predictions for the movie bias are shown in the table below :
-
-```{r, echo=FALSE}
-edx_sample <- edx_movies %>%
-  mutate(pred_1 = mu + b_m, pred_2 = mu + b_m + b_mu, pred_3 = mu + b_v + b_w + b_x) %>%
-  select(userId, movieId, title, year, rating, pred_1, pred_2, pred_3) %>%
-  filter(nchar(title) <= 30) %>%
-  sample_n(5)
-data_summary <- edx_sample %>% select(userId, movieId, title, year, rating, pred_1)
-kable(data_summary) %>% kable_styling(font_size = 9)
-```
+<table class="table" style="font-size: 9px; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+userId
+</th>
+<th style="text-align:right;">
+movieId
+</th>
+<th style="text-align:left;">
+title
+</th>
+<th style="text-align:right;">
+year
+</th>
+<th style="text-align:right;">
+rating
+</th>
+<th style="text-align:right;">
+pred\_1
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+18162
+</td>
+<td style="text-align:right;">
+38061
+</td>
+<td style="text-align:left;">
+Kiss Kiss Bang Bang
+</td>
+<td style="text-align:right;">
+2005
+</td>
+<td style="text-align:right;">
+4.5
+</td>
+<td style="text-align:right;">
+3.882276
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+40319
+</td>
+<td style="text-align:right;">
+5450
+</td>
+<td style="text-align:left;">
+Lovely & Amazing
+</td>
+<td style="text-align:right;">
+2001
+</td>
+<td style="text-align:right;">
+4.0
+</td>
+<td style="text-align:right;">
+3.511594
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+62284
+</td>
+<td style="text-align:right;">
+457
+</td>
+<td style="text-align:left;">
+Fugitive, The
+</td>
+<td style="text-align:right;">
+1993
+</td>
+<td style="text-align:right;">
+4.0
+</td>
+<td style="text-align:right;">
+4.009155
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+54902
+</td>
+<td style="text-align:right;">
+6218
+</td>
+<td style="text-align:left;">
+Bend It Like Beckham
+</td>
+<td style="text-align:right;">
+2002
+</td>
+<td style="text-align:right;">
+4.0
+</td>
+<td style="text-align:right;">
+3.673926
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+67248
+</td>
+<td style="text-align:right;">
+356
+</td>
+<td style="text-align:left;">
+Forrest Gump
+</td>
+<td style="text-align:right;">
+1994
+</td>
+<td style="text-align:right;">
+5.0
+</td>
+<td style="text-align:right;">
+4.012822
+</td>
+</tr>
+</tbody>
+</table>
 
 ## Bias (Multiple)
 
-The next step is to introduce a second bias so the prediction can be written :
-\begin{equation}
-\Large
-\hat{y}_{v,w,i} = \mu + b_{v,i} + b_{w,i}
-\end{equation}
+The next step is to introduce a second bias so the prediction can be
+written :
 
 where :  
-\( \hat{y}_{v,i} \) : The predicted values for a variable v (model outputs).  
-\( b_{v,i} \) : The bias for a variable v.  
-\( b_{w,i} \) : The bias for a variable w.  
+*ŷ*<sub>*v*, *i*</sub> : The predicted values for a variable v (model
+outputs).  
+*b*<sub>*v*, *i*</sub> : The bias for a variable v.  
+*b*<sub>*w*, *i*</sub> : The bias for a variable w.
 
-We can keep the same formula (5) for the 2 biases, which will give a better RMSE for the movie and user variables : **0.8767534**
+We can keep the same formula (5) for the 2 biases, which will give a
+better RMSE for the movie and user variables : **0.8767534**
 
-However, we can even fine tune the calculation of the bias. If we keep the same formula as (5) for the first bias, we can calculate the next one with this formulas :
+However, we can even fine tune the calculation of the bias. If we keep
+the same formula as (5) for the first bias, we can calculate the next
+one with this formulas :
 
-\begin{equation}
-\Large
-b_{w,i} = \frac{1}{N} \sum_{j} \left( y_{j} - \mu - b_{v,j} \right)
-\end{equation}
+The first bias is defined as the difference between the overall average
+and the average for a specific movie (or user or genre).
 
-The first bias is defined as the difference between the overall average and the average for a specific movie (or user or genre).
+However, the definition of the second bias has changed. When the first
+bias pertains to the movie, the second bias—applicable to the user—will
+be the difference between the average rating for a specific user and the
+average of the predicted ratings for the movies that this user has
+rated.
 
-However, the definition of the second bias has changed. When the first bias pertains to the movie, the second bias—applicable to the user—will be the difference between the average rating for a specific user and the average of the predicted ratings for the movies that this user has rated.
+The table below presents the RMSE values for different prediction types
+used in our analysis : average and bias for Movie, and the multiple
+biases applied to Movie and User, and all variables : Movie, User,
+Genres, Year(timestamp) and Year (release).
 
-The table below presents the RMSE values for different prediction types used in our analysis : average and bias for Movie, and the multiple biases applied to Movie and User, and all variables : Movie, User, Genres, Year(timestamp) and Year (release).
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+Type
+</th>
+<th style="text-align:right;">
+RMSE
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Target
+</td>
+<td style="text-align:right;">
+0.8649000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Average
+</td>
+<td style="text-align:right;">
+1.0603313
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Movie
+</td>
+<td style="text-align:right;">
+0.9423475
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Movie + User
+</td>
+<td style="text-align:right;">
+0.8567039
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+All
+</td>
+<td style="text-align:right;">
+0.8561090
+</td>
+</tr>
+</tbody>
+</table>
 
-```{r, echo=FALSE}
-kable(results %>%
-  filter(Type %in% c("Target", "Average", "Movie", "Movie + User", "All"))) %>%
-  kable_styling(full_width = F)
-```
+The following plot show the distribution of errors for the Movie bias
+(simple) and the Movie + User one (multiple) :
 
-\newpage
+<img src="MovieLensMD_files/figure-markdown_strict/unnamed-chunk-24-1.png" alt="Comparison of the Distribution of ratings"  />
+<p class="caption">
+Comparison of the Distribution of ratings
+</p>
 
-The following plot show the distribution of errors for the Movie bias (simple) and the Movie + User one (multiple) :
+As an example, some predictions for the movie and user biases are shown
+in the table below :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Comparison of the Distribution of ratings", fig.width=4, fig.height=3}
-ggplot(
-  bind_rows(edx_movies %>% mutate(err = rating - mu - b_m, Type = "Movie") %>% select(rating, err, Type),
-            edx_movies %>% mutate(err = rating - mu - b_m - b_mu, Type = "Movie+User") %>% select(rating, err, Type)),
-  aes(x = err, fill = Type)) +
-  geom_histogram(position = "identity", alpha = 0.8, bins = 30) +
-  scale_color_brewer(palette="Accent") + 
-  labs(x = "Rating", y = "Count") +
-  theme_minimal() + theme(legend.position = "top") +
-  scale_fill_manual(values = c("Movie" = "darkred", "Movie+User" = "grey"))
-```
-
-As an example, some predictions for the movie and user biases are shown in the table below :
-
-```{r, echo=FALSE}
-data_summary <- edx_sample %>% select(userId, movieId, title, year, rating, pred_1, pred_2)
-kable(data_summary) %>% kable_styling(font_size = 9)
-```
+<table class="table" style="font-size: 9px; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+userId
+</th>
+<th style="text-align:right;">
+movieId
+</th>
+<th style="text-align:left;">
+title
+</th>
+<th style="text-align:right;">
+year
+</th>
+<th style="text-align:right;">
+rating
+</th>
+<th style="text-align:right;">
+pred\_1
+</th>
+<th style="text-align:right;">
+pred\_2
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+18162
+</td>
+<td style="text-align:right;">
+38061
+</td>
+<td style="text-align:left;">
+Kiss Kiss Bang Bang
+</td>
+<td style="text-align:right;">
+2005
+</td>
+<td style="text-align:right;">
+4.5
+</td>
+<td style="text-align:right;">
+3.882276
+</td>
+<td style="text-align:right;">
+4.360147
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+40319
+</td>
+<td style="text-align:right;">
+5450
+</td>
+<td style="text-align:left;">
+Lovely & Amazing
+</td>
+<td style="text-align:right;">
+2001
+</td>
+<td style="text-align:right;">
+4.0
+</td>
+<td style="text-align:right;">
+3.511594
+</td>
+<td style="text-align:right;">
+3.192117
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+62284
+</td>
+<td style="text-align:right;">
+457
+</td>
+<td style="text-align:left;">
+Fugitive, The
+</td>
+<td style="text-align:right;">
+1993
+</td>
+<td style="text-align:right;">
+4.0
+</td>
+<td style="text-align:right;">
+4.009155
+</td>
+<td style="text-align:right;">
+3.875513
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+54902
+</td>
+<td style="text-align:right;">
+6218
+</td>
+<td style="text-align:left;">
+Bend It Like Beckham
+</td>
+<td style="text-align:right;">
+2002
+</td>
+<td style="text-align:right;">
+4.0
+</td>
+<td style="text-align:right;">
+3.673926
+</td>
+<td style="text-align:right;">
+1.913689
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+67248
+</td>
+<td style="text-align:right;">
+356
+</td>
+<td style="text-align:left;">
+Forrest Gump
+</td>
+<td style="text-align:right;">
+1994
+</td>
+<td style="text-align:right;">
+5.0
+</td>
+<td style="text-align:right;">
+4.012822
+</td>
+<td style="text-align:right;">
+3.667569
+</td>
+</tr>
+</tbody>
+</table>
 
 ## Regularisation
 
-Regularization adjusts the model's bias by incorporating penalty terms into the loss function. This adjustment helps to tune the model's complexity, making it more robust against overfitting. By adding penalties to large coefficients, regularization reduces the influence of outliers. This results in a model that doesn’t react excessively to extreme values in the data.
+Regularization adjusts the model’s bias by incorporating penalty terms
+into the loss function. This adjustment helps to tune the model’s
+complexity, making it more robust against overfitting. By adding
+penalties to large coefficients, regularization reduces the influence of
+outliers. This results in a model that doesn’t react excessively to
+extreme values in the data.
 
 The bias formulas for the movies and the users can now be written :
 
-\begin{equation}
-\Large
-b_{m} = \frac{\displaystyle\sum_{j} (y_{j} - \mu)}{N + \lambda}
-\end{equation}
-
 and :
 
-\begin{equation}
-\Large
-b_{u,m} = \frac{\displaystyle\sum_{j} (y_{j} - \mu - b_{m})}{N + \lambda}
-\end{equation}
+The figure below shows how the (RMSE varies with the regularisation
+parameter *λ* :
 
-The figure below shows how the (RMSE varies with the regularisation parameter $\lambda$ :
+<img src="MovieLensMD_files/figure-markdown_strict/unnamed-chunk-26-1.png" alt="Cross‑validated RMSE vs Regularisation Strength"  />
+<p class="caption">
+Cross‑validated RMSE vs Regularisation Strength
+</p>
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Cross‑validated RMSE vs Regularisation Strength", fig.width=4, fig.height=3}
-ggplot(mapping = aes(x = lambdas, y = rmse_arr)) +
-  geom_point(color = "darkred") +
-  labs(x = "Lambda", y = "RMSE") +
-  theme_minimal() + theme(legend.position = "top")
-```
+The minimum value is reached when *λ* = 0.5, the RMSE is then
+**0.8566952**.
 
-The minimum value is reached when $\lambda$ = 0.5, the RMSE is then **0.8566952**.
+This result is higher than with the previous method and not really below
+the Movie + User method :
 
-This result is higher than with the previous method and not really below the Movie + User method :
-
-```{r, echo=FALSE}
-kable(results %>%
-  filter(Type %in% c("Target", "Average", "Movie", "Movie + User", "All", "Regularisation (Movie + User)"))) %>%
-  kable_styling(full_width = F)
-```
-
-\newpage
-
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+Type
+</th>
+<th style="text-align:right;">
+RMSE
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Target
+</td>
+<td style="text-align:right;">
+0.8649000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Average
+</td>
+<td style="text-align:right;">
+1.0603313
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Movie
+</td>
+<td style="text-align:right;">
+0.9423475
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Movie + User
+</td>
+<td style="text-align:right;">
+0.8567039
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+All
+</td>
+<td style="text-align:right;">
+0.8561090
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Regularisation (Movie + User)
+</td>
+<td style="text-align:right;">
+0.8566952
+</td>
+</tr>
+</tbody>
+</table>
 ## Multi-dimension bias
 
 The idea is to use a couple of variables to calculate the bias.
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Rating per user, year (timestamp) and movie", fig.height=4}
-df <- edx_movies %>% sample_n(50)
-scatterplot3d::scatterplot3d(df$userId, df$t_year, df$rating, color = df$movieId, pch = 16,
-                             grid = TRUE, box = FALSE, xlab = "User ID", 
-                             ylab = "Year", zlab = "Rating", zlim = c(0, 5))
-```
+<img src="MovieLensMD_files/figure-markdown_strict/unnamed-chunk-28-1.png" alt="Rating per user, year (timestamp) and movie"  />
+<p class="caption">
+Rating per user, year (timestamp) and movie
+</p>
 
-The table below displays for each couple of variables the number of rows in final_holdout_test not in the edx dataset :
+The table below displays for each couple of variables the number of rows
+in final\_holdout\_test not in the edx dataset :
 
-```{r, echo=FALSE}
-kable(unique_rows, format.args = list(big.mark = ",")) %>%
-  kable_styling(full_width = F)
-```
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+Combination
+</th>
+<th style="text-align:right;">
+Nb Rows
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+userId, movieId
+</td>
+<td style="text-align:right;">
+999,999
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+userId, title
+</td>
+<td style="text-align:right;">
+994,147
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+userId, genres
+</td>
+<td style="text-align:right;">
+336,086
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+userId, year
+</td>
+<td style="text-align:right;">
+73,053
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+movieId, t\_year
+</td>
+<td style="text-align:right;">
+704
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+t\_year, title
+</td>
+<td style="text-align:right;">
+692
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+userId, t\_year
+</td>
+<td style="text-align:right;">
+162
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+t\_year, genres
+</td>
+<td style="text-align:right;">
+16
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+t\_year, year
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+movieId, title
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+movieId, year
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+movieId, genres
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+title, year
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+title, genres
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+year, genres
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+</tbody>
+</table>
 
-The more rows only in final_holdout_test, the better RMSE we will get in the training set, but we will probably also get a high RMSE in the test set.
+The more rows only in final\_holdout\_test, the better RMSE we will get
+in the training set, but we will probably also get a high RMSE in the
+test set.
 
-We can even treat three variables as a triplet. The table below shows, for each combination of these three variables, how many rows in final_holdout_test are absent from the edx dataset :
+We can even treat three variables as a triplet. The table below shows,
+for each combination of these three variables, how many rows in
+final\_holdout\_test are absent from the edx dataset :
 
-```{r, echo=FALSE}
-kable(unique_rows_3d, format.args = list(big.mark = ",")) %>%
-  kable_styling(full_width = F)
-```
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+Combination
+</th>
+<th style="text-align:right;">
+Nb Rows
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+userId, movieId, t\_year
+</td>
+<td style="text-align:right;">
+999,999
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+userId, movieId, title
+</td>
+<td style="text-align:right;">
+999,999
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+userId, movieId, year
+</td>
+<td style="text-align:right;">
+999,999
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+userId, movieId, genres
+</td>
+<td style="text-align:right;">
+999,999
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+userId, title, year
+</td>
+<td style="text-align:right;">
+999,996
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+userId, title, genres
+</td>
+<td style="text-align:right;">
+998,705
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+userId, t\_year, title
+</td>
+<td style="text-align:right;">
+995,577
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+userId, year, genres
+</td>
+<td style="text-align:right;">
+761,808
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+userId, t\_year, genres
+</td>
+<td style="text-align:right;">
+377,194
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+userId, t\_year, year
+</td>
+<td style="text-align:right;">
+93,965
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+movieId, t\_year, title
+</td>
+<td style="text-align:right;">
+704
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+movieId, t\_year, year
+</td>
+<td style="text-align:right;">
+704
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+movieId, t\_year, genres
+</td>
+<td style="text-align:right;">
+704
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+t\_year, title, year
+</td>
+<td style="text-align:right;">
+704
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+t\_year, title, genres
+</td>
+<td style="text-align:right;">
+704
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+t\_year, year, genres
+</td>
+<td style="text-align:right;">
+188
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+movieId, title, year
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+movieId, title, genres
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+movieId, year, genres
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+title, year, genres
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+</tbody>
+</table>
 
-As we saw earlier, we had the lowest RMSE by applying a bias on the movie variable before the user one, so we will continue with the couples (movieId, t_year), (userId, t_year) and then (t_year, year, title).
+As we saw earlier, we had the lowest RMSE by applying a bias on the
+movie variable before the user one, so we will continue with the couples
+(movieId, t\_year), (userId, t\_year) and then (t\_year, year, title).
 
-To further reduce the RMSE, we will also apply a regularization with the same value of $\lambda$ as found earlier (0.5).
+To further reduce the RMSE, we will also apply a regularization with the
+same value of *λ* as found earlier (0.5).
 
 The formulas for the 3 bias will then be :
 
-\begin{equation}
-\Large
-b_{v} = \frac{\displaystyle\sum_{j} (y_{j} - \mu)}{N + \lambda}
-\end{equation}
-
-\begin{equation}
-\Large
-b_{w} = \frac{\displaystyle\sum_{j} (y_{j} - \mu - b_{v})}{N + \lambda}
-\end{equation}
-
-\begin{equation}
-\Large
-b_{x} = \frac{\displaystyle\sum_{j} (y_{j} - \mu - b_{v} - b_{w})}{N + \lambda}
-\end{equation}
-
-\newpage
-
 Bias Calculation :
 
-```{r eval=FALSE}
-b_v <- edx_movies %>%
-  group_by(movieId, t_year) %>%
-  summarise(b_v = sum(rating - mu)/(n() + lambda))
-
-b_w <- edx_movies %>%
-  group_by(userId, t_year) %>%
-  summarise(b_w = sum(rating - mu - b_v)/(n() + lambda))
-
-b_x <- edx_movies %>%
-  group_by(t_year, year, title) %>%
-  summarise(b_x = sum(rating - mu - b_v - b_w)/(n() + lambda))
-```
+    b_v <- edx_movies %>%
+      group_by(movieId, t_year) %>%
+      summarise(b_v = sum(rating - mu)/(n() + lambda))
+                                    
+    b_w <- edx_movies %>%
+      group_by(userId, t_year) %>%
+      summarise(b_w = sum(rating - mu - b_v)/(n() + lambda))
+                                    
+    b_x <- edx_movies %>%
+      group_by(t_year, year, title) %>%
+      summarise(b_x = sum(rating - mu - b_v - b_w)/(n() + lambda))
 
 Joining the bias terms to the edx data set :
 
-```{r eval=FALSE}
-edx_movies <- edx_movies %>%
-  left_join(b_v, by = c("movieId", "t_year")) %>%
-  mutate(b_v = replace_na(b_v, 0))
+    edx_movies <- edx_movies %>%
+      left_join(b_v, by = c("movieId", "t_year")) %>%
+      mutate(b_v = replace_na(b_v, 0))
 
-edx_movies <- edx_movies %>%
-  left_join(b_w, by = c("userId", "t_year")) %>%
-  mutate(b_w = replace_na(b_w, 0))
+    edx_movies <- edx_movies %>%
+      left_join(b_w, by = c("userId", "t_year")) %>%
+      mutate(b_w = replace_na(b_w, 0))
 
-edx_movies <- edx_movies %>%
-  left_join(b_x, by = c("t_year", "year", "title")) %>%
-  mutate(b_x = replace_na(b_x, 0))
-```
+    edx_movies <- edx_movies %>%
+      left_join(b_x, by = c("t_year", "year", "title")) %>%
+      mutate(b_x = replace_na(b_x, 0))
 
-After incorporating the three bias components, the model achieves an RMSE of **0.8417134** on the train set.
+After incorporating the three bias components, the model achieves an
+RMSE of **0.8417134** on the train set.
 
-```{r, echo=FALSE}
-kable(results %>%
-  filter(Type %in% c("Target", "Average", "Movie", "Movie + User",
-                     "All", "Regularisation (Movie + User)", "2D/3D Interaction"))) %>%
-  kable_styling(full_width = F)
-```
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+Type
+</th>
+<th style="text-align:right;">
+RMSE
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Target
+</td>
+<td style="text-align:right;">
+0.8649000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Average
+</td>
+<td style="text-align:right;">
+1.0603313
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Movie
+</td>
+<td style="text-align:right;">
+0.9423475
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Movie + User
+</td>
+<td style="text-align:right;">
+0.8567039
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+All
+</td>
+<td style="text-align:right;">
+0.8561090
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Regularisation (Movie + User)
+</td>
+<td style="text-align:right;">
+0.8566952
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2D/3D Interaction
+</td>
+<td style="text-align:right;">
+0.8417134
+</td>
+</tr>
+</tbody>
+</table>
 
 As an example, some predictions are shown in the table below :
 
-```{r, echo=FALSE}
-data_summary <- edx_sample %>% select(userId, movieId, title, year, rating, pred_1, pred_2, pred_3)
-kable(data_summary) %>% kable_styling(font_size = 9)
-```
-
-\newpage
-
+<table class="table" style="font-size: 9px; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+userId
+</th>
+<th style="text-align:right;">
+movieId
+</th>
+<th style="text-align:left;">
+title
+</th>
+<th style="text-align:right;">
+year
+</th>
+<th style="text-align:right;">
+rating
+</th>
+<th style="text-align:right;">
+pred\_1
+</th>
+<th style="text-align:right;">
+pred\_2
+</th>
+<th style="text-align:right;">
+pred\_3
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+18162
+</td>
+<td style="text-align:right;">
+38061
+</td>
+<td style="text-align:left;">
+Kiss Kiss Bang Bang
+</td>
+<td style="text-align:right;">
+2005
+</td>
+<td style="text-align:right;">
+4.5
+</td>
+<td style="text-align:right;">
+3.882276
+</td>
+<td style="text-align:right;">
+4.360147
+</td>
+<td style="text-align:right;">
+4.368535
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+40319
+</td>
+<td style="text-align:right;">
+5450
+</td>
+<td style="text-align:left;">
+Lovely & Amazing
+</td>
+<td style="text-align:right;">
+2001
+</td>
+<td style="text-align:right;">
+4.0
+</td>
+<td style="text-align:right;">
+3.511594
+</td>
+<td style="text-align:right;">
+3.192117
+</td>
+<td style="text-align:right;">
+2.978198
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+62284
+</td>
+<td style="text-align:right;">
+457
+</td>
+<td style="text-align:left;">
+Fugitive, The
+</td>
+<td style="text-align:right;">
+1993
+</td>
+<td style="text-align:right;">
+4.0
+</td>
+<td style="text-align:right;">
+4.009155
+</td>
+<td style="text-align:right;">
+3.875513
+</td>
+<td style="text-align:right;">
+3.911760
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+54902
+</td>
+<td style="text-align:right;">
+6218
+</td>
+<td style="text-align:left;">
+Bend It Like Beckham
+</td>
+<td style="text-align:right;">
+2002
+</td>
+<td style="text-align:right;">
+4.0
+</td>
+<td style="text-align:right;">
+3.673926
+</td>
+<td style="text-align:right;">
+1.913689
+</td>
+<td style="text-align:right;">
+2.019283
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+67248
+</td>
+<td style="text-align:right;">
+356
+</td>
+<td style="text-align:left;">
+Forrest Gump
+</td>
+<td style="text-align:right;">
+1994
+</td>
+<td style="text-align:right;">
+5.0
+</td>
+<td style="text-align:right;">
+4.012822
+</td>
+<td style="text-align:right;">
+3.667569
+</td>
+<td style="text-align:right;">
+3.682763
+</td>
+</tr>
+</tbody>
+</table>
 ## Clamping
 
-While we have now a relatively low RMSE of 0.8417290, further analysis of the data shows that the predicted values range from -1 to 6.2 when the ratings range from 0.5 to 5 :
+While we have now a relatively low RMSE of 0.8417290, further analysis
+of the data shows that the predicted values range from -1 to 6.2 when
+the ratings range from 0.5 to 5 :
 
-```{r, echo=FALSE}
-data_summary <- data.frame(Variable = c("Rating", "Prediction"),
-                           Min = c(min(edx_movies$rating), min(edx_movies$pred)),
-                           Max = c(max(edx_movies$rating), max(edx_movies$pred)))
-kable(data_summary) %>% kable_styling(full_width = F)
-```
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+Variable
+</th>
+<th style="text-align:right;">
+Min
+</th>
+<th style="text-align:right;">
+Max
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Rating
+</td>
+<td style="text-align:right;">
+0.500000
+</td>
+<td style="text-align:right;">
+5.000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Prediction
+</td>
+<td style="text-align:right;">
+-1.036935
+</td>
+<td style="text-align:right;">
+6.204538
+</td>
+</tr>
+</tbody>
+</table>
 
-We should be able to reduce the RMSE by replacing all values out of the expected range by 0.5 or 5. We can even go further by replacing all values outside a smaller range by 0.5 or 5.
+We should be able to reduce the RMSE by replacing all values out of the
+expected range by 0.5 or 5. We can even go further by replacing all
+values outside a smaller range by 0.5 or 5.
 
-Let's try first with the maximum value a prediction can take. The graph below shows that the minimum RMSE we can get is when we clamp all data above 4.64 :
+Let’s try first with the maximum value a prediction can take. The graph
+below shows that the minimum RMSE we can get is when we clamp all data
+above 4.64 :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "RMSE vs VMax", fig.width=4, fig.height=2}
-ggplot(mapping = aes(x = vmaxs, y = rmse_clamp_max_arr)) +
-  geom_point(color = "darkred") +
-  labs(x = "VMax", y = "RMSE") +
-  theme_minimal() + theme(legend.position = "top")
-```
+<img src="MovieLensMD_files/figure-markdown_strict/unnamed-chunk-36-1.png" alt="RMSE vs VMax"  />
+<p class="caption">
+RMSE vs VMax
+</p>
 
-Using a maximum value of 4.64, we can continue and determine the minimum value which will give us the best RMSE is 0.93 :
+Using a maximum value of 4.64, we can continue and determine the minimum
+value which will give us the best RMSE is 0.93 :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "RMSE vs VMin", fig.width=4, fig.height=2}
-ggplot(mapping = aes(x = vmins, y = rmse_clamp_min_arr)) +
-  geom_point(color = "darkred") +
-  labs(x = "VMin", y = "RMSE") +
-  theme_minimal() + theme(legend.position = "top")
-```
+<img src="MovieLensMD_files/figure-markdown_strict/unnamed-chunk-37-1.png" alt="RMSE vs VMin"  />
+<p class="caption">
+RMSE vs VMin
+</p>
 
 We now have an RMSE of **0.8412219**.
 
-\newpage
-
 # Final Test
 
-We now apply the latest prediction algorithm to the final_holdout_test data set.
+We now apply the latest prediction algorithm to the final\_holdout\_test
+data set.
 
 ## Join the bias terms
 
-```{r eval=FALSE}
-final_holdout_test_movies <- final_holdout_test_movies %>%
-  left_join(b_v, by = c("movieId", "t_year")) %>%
-  mutate(b_v = replace_na(b_v, 0))
+    final_holdout_test_movies <- final_holdout_test_movies %>%
+      left_join(b_v, by = c("movieId", "t_year")) %>%
+      mutate(b_v = replace_na(b_v, 0))
 
-final_holdout_test_movies <- final_holdout_test_movies %>%
-  left_join(b_w, by = c("userId", "t_year")) %>%
-  mutate(b_w = replace_na(b_w, 0))
+    final_holdout_test_movies <- final_holdout_test_movies %>%
+      left_join(b_w, by = c("userId", "t_year")) %>%
+      mutate(b_w = replace_na(b_w, 0))
 
-final_holdout_test_movies <- final_holdout_test_movies %>%
-  left_join(b_x, by = c("t_year", "year", "title")) %>%
-  mutate(b_x = replace_na(b_x, 0))
-```
+    final_holdout_test_movies <- final_holdout_test_movies %>%
+      left_join(b_x, by = c("t_year", "year", "title")) %>%
+      mutate(b_x = replace_na(b_x, 0))
 
 ## Compute the predictions
 
-The predicted rating is the global mean ($\mu$) plus the three bias components.
-The result is then clamped to the admissible rating range (0.93 – 4.64).
+The predicted rating is the global mean (*μ*) plus the three bias
+components. The result is then clamped to the admissible rating range
+(0.93 – 4.64).
 
-```{r eval=FALSE}
-final_holdout_test_movies$pred <- pmin(pmax(mu +
-                                              final_holdout_test_movies$b_v +
-                                              final_holdout_test_movies$b_w +
-                                              final_holdout_test_movies$b_x, 0.93), 4.64)
-```
+    final_holdout_test_movies$pred <- pmin(pmax(mu +
+                                                  final_holdout_test_movies$b_v +
+                                                  final_holdout_test_movies$b_w +
+                                                  final_holdout_test_movies$b_x, 0.93), 4.64)
 
 ## Evaluate the model
 
-The Root Mean Squared Error (RMSE) is computed by comparing the observed ratings with the predicted values.
+The Root Mean Squared Error (RMSE) is computed by comparing the observed
+ratings with the predicted values.
 
-```{r eval=FALSE}
-RMSE(final_holdout_test_movies$rating, final_holdout_test_movies$pred)
-```
+    RMSE(final_holdout_test_movies$rating, final_holdout_test_movies$pred)
 
-The final RMSE obtained on the hold‑out test set is **\large0.8579873**.
-
-\newpage
+The final RMSE obtained on the hold‑out test set is **0.8579873**.
 
 # Conclusion
 
-We achieved our target, obtaining an RMSE of **0.857987**, which is lower than the required maximum of **0.86490**.
+We achieved our target, obtaining an RMSE of **0.857987**, which is
+lower than the required maximum of **0.86490**.
 
-To reach this result we experimented with several bias‑based methods and selected the combination that performed best on the validation data.
+To reach this result we experimented with several bias‑based methods and
+selected the combination that performed best on the validation data.
 
-Further improvements are possible. The distribution of ratings in the training set is not perfectly normal because a subset of users consistently give half‑star ratings. If we separate the data into half‑mark and full‑mark subsets, each subset approximates a normal distribution.
+Further improvements are possible. The distribution of ratings in the
+training set is not perfectly normal because a subset of users
+consistently give half‑star ratings. If we separate the data into
+half‑mark and full‑mark subsets, each subset approximates a normal
+distribution.
 
 A promising next step would be a two‑stage modeling approach:
 
-Stage 1 – Classification: Predict whether a user will assign a half‑mark or a full mark to a given movie. This binary decision could be modeled with logistic regression, a tree‑based classifier, or any suitable machine‑learning algorithm.
+Stage 1 – Classification: Predict whether a user will assign a half‑mark
+or a full mark to a given movie. This binary decision could be modeled
+with logistic regression, a tree‑based classifier, or any suitable
+machine‑learning algorithm.
 
-Stage 2 – Regression: Apply separate bias‑adjusted regression formulas for the two groups (one for half‑marks, another for full marks). Each regression would use the appropriate bias terms (movie, user, time, etc.) tailored to that subgroup.
+Stage 2 – Regression: Apply separate bias‑adjusted regression formulas
+for the two groups (one for half‑marks, another for full marks). Each
+regression would use the appropriate bias terms (movie, user, time,
+etc.) tailored to that subgroup.
 
-By first determining the likely rating granularity and then applying a specialized regression model, we expect to reduce prediction error further.
+By first determining the likely rating granularity and then applying a
+specialized regression model, we expect to reduce prediction error
+further.
