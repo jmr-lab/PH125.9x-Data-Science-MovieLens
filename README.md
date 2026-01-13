@@ -121,5 +121,3 @@ Hyper‑parameter optimisation with Bayesian methods to fine‑tune λ and the c
 License
 The code in this repository is released under the MIT License.
 The MovieLens data set is provided under the GroupLens Research license (see https://grouplens.org/datasets/movielens/10m/ for details).
-
-Happy modelling! 🚀
