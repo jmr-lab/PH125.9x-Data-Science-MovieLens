@@ -1,3 +1,7 @@
+<h1>MovieLens Recommendation Project</h1><div class="content-visibility-auto"><p><strong>Author:</strong> Jean‑Marie Roy | <strong>Date:</strong> 2025‑12‑16 | <strong>Version:</strong> 1.0</p>
+<p>This repository contains everything needed to reproduce a <strong>movie‑rating prediction model</strong> built on the <strong>MovieLens 10 M</strong> data set. The goal is to predict user ratings with a <strong>root‑mean‑square error (RMSE) ≤ 0.86490</strong>. The final model achieves an RMSE of <strong>0.8579873</strong> on the hold‑out test set.</p>
+<hr>
+<h2>Repository Layout</h2>
 <pre><code>├── README.md                ← This file
 ├── MovieLens.Rmd            ← R Markdown notebook (analysis + narrative)
 ├── MovieLens.pdf            ← Rendered PDF version of the notebook
@@ -117,5 +121,3 @@
 <h2>License</h2>
 <p>The code in this repository is released under the <strong>MIT License</strong>.<br>
 The MovieLens data set is provided under the <strong>GroupLens Research</strong> license (see <a href="https://grouplens.org/datasets/movielens/10m/">https://grouplens.org/datasets/movielens/10m/</a> for details).</p>
-<hr>
-class="button button-for-icon button-small button-ghost-weak lumo-no-copy" aria-busy="false" type="button" aria-label="Copy" aria-describedby="tooltip-322"><svg viewBox="0 0 16 16" class="icon-size-4" role="img" focusable="false" aria-hidden="true"><use xlink:href="#ic-squares"></use></svg></button><button class="button button-for-icon button-small button-ghost-weak shrink-0 lumo-no-copy" aria-busy="false" type="button" aria-describedby="tooltip-323" disabled="" tabindex="-1"><svg viewBox="0 0 16 16" class="icon-size-4" role="img" focusable="false" aria-hidden="true"><use xlink:href="#ic-arrows-rotate"></use></svg><span class="sr-only">Regenerate</span></button></div></div>
