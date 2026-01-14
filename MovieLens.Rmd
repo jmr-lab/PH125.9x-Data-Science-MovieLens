@@ -13,7 +13,9 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r, echo=FALSE}
-# To increase the speed of the rendering, we only run the setup and the "MovieLens" code separately, and use the variables stored in the global environment. This also allows to reduce the size of the Rmd file by moving as much code as possible to the R file.
+# To increase the speed of the rendering, we only run the setup and the "MovieLens" code separately,
+# and use the variables stored in the global environment.
+# This also allows to reduce the size of the Rmd file by moving as much code as possible to the R file.
 # To be able to access the variables, the markdown code should be run in the console :
 #
 # rmarkdown::render("MovieLens.Rmd")
@@ -98,9 +100,9 @@ The pair (movieId, userId) can be used as a primary key, as each user has rated 
 
 ```{r, echo=FALSE}
 data_summary <- data.frame(Dataset = c("edx", "final_holdout_test", "Overlap"),
-                           MovieUserId = c(comma(nrow(edx_unique)),
-                                           comma(nrow(test_unique)),
-                                           comma(nrow(overlap))),
+                           MovieUserId = c(comma(edx_unique_count),
+                                           comma(test_unique_count),
+                                           comma(overlap_count)),
                            Ratings = c(comma(nrow(edx)), comma(nrow(final_holdout_test)), ""))
 names(data_summary)[2] <- "(movieId, userId)"
 kable(data_summary) %>% kable_styling(full_width = F) %>% row_spec(0, background = "gray!20")
@@ -595,7 +597,7 @@ kable(results %>%
 
 The following plot show the distribution of errors for the Movie bias (simple) and the Movie + User one (multiple) :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Comparison of the Distribution of ratings", fig.width=4, fig.height=3}
+```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Comparison of the Distribution of errors", fig.width=4, fig.height=3}
 ggplot(
   bind_rows(edx_movies %>% mutate(err = rating - mu - b_m, Type = "Movie") %>% select(rating, err, Type),
             edx_movies %>% mutate(err = rating - mu - b_m - b_mu, Type = "Movie+User") %>% select(rating, err, Type)),
@@ -703,32 +705,31 @@ b_{x} = \frac{\displaystyle\sum_{j} (y_{j} - \mu - b_{v} - b_{w})}{N + \lambda}
 
 \newpage
 
-Bias Calculation :
+The following R code performs bias calculations based on the edx_movies dataset and joins the results back into the dataset:
 
 ```{r eval=FALSE}
+# Calculate bias for each movie and year, and join to the edx_movies dataset
 b_v <- edx_movies %>%
   group_by(movieId, t_year) %>%
   summarise(b_v = sum(rating - mu)/(n() + lambda))
 
-b_w <- edx_movies %>%
-  group_by(userId, t_year) %>%
-  summarise(b_w = sum(rating - mu - b_v)/(n() + lambda))
-
-b_x <- edx_movies %>%
-  group_by(t_year, year, title) %>%
-  summarise(b_x = sum(rating - mu - b_v - b_w)/(n() + lambda))
-```
-
-Joining the bias terms to the edx data set :
-
-```{r eval=FALSE}
 edx_movies <- edx_movies %>%
   left_join(b_v, by = c("movieId", "t_year")) %>%
   mutate(b_v = replace_na(b_v, 0))
 
+# Calculate bias for each user and year, and join to the edx_movies dataset
+b_w <- edx_movies %>%
+  group_by(userId, t_year) %>%
+  summarise(b_w = sum(rating - mu - b_v)/(n() + lambda))
+
 edx_movies <- edx_movies %>%
   left_join(b_w, by = c("userId", "t_year")) %>%
   mutate(b_w = replace_na(b_w, 0))
+
+# Calculate bias for each title per year, and join to the edx_movies dataset
+b_x <- edx_movies %>%
+  group_by(t_year, year, title) %>%
+  summarise(b_x = sum(rating - mu - b_v - b_w)/(n() + lambda))
 
 edx_movies <- edx_movies %>%
   left_join(b_x, by = c("t_year", "year", "title")) %>%
