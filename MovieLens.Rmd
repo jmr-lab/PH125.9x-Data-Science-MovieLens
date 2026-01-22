@@ -1,9 +1,11 @@
 ---
-title: "MovieLens"
+title: "Movie Rating Prediction"
 author: "Jean-Marie Roy"
 date: "2025-12-16"
 output:
-  pdf_document: default
+  pdf_document:
+    toc: false
+    toc_depth: 2
   html_document:
     df_print: paged
 ---
@@ -27,9 +29,25 @@ knitr::opts_chunk$set(echo = TRUE)
 #
 ```
 
-# Introduction
+\vspace*{\fill}
 
-## Objective
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.5\textwidth]{title-image.jpg}
+  \label{fig:my_image}
+\end{figure}
+
+\vspace*{\fill}
+
+\newpage
+
+\tableofcontents
+
+\newpage
+
+# 1. Introduction
+
+## 1.1 Objective
 
 The purpose of this document is to explain how to create a movie recommendation system using the MovieLens dataset.
 During the PH125.8x: Data Science: Machine Learning course, the dataset used was from the the dslabs package. For this exercise, we will use a 10M rows dataset available here :
@@ -38,8 +56,11 @@ During the PH125.8x: Data Science: Machine Learning course, the dataset used was
 
 The history and context of this dataset are available here :
 
-
->F. Maxwell Harper and Joseph A. Konstan. 2015. The MovieLens Datasets: History and Context. ACM Transactions on Interactive Intelligent Systems (TiiS) 5, 4, Article 19 (December 2015), 19 pages. DOI=http://dx.doi.org/10.1145/2827872
+\fbox{%
+  \begin{minipage}{0.95\textwidth}
+    F. Maxwell Harper and Joseph A. Konstan. 2015. The MovieLens Datasets: History and Context. ACM Transactions on Interactive Intelligent Systems (TiiS) 5, 4, Article 19 (December 2015), 19 pages. DOI=http://dx.doi.org/10.1145/2827872
+  \end{minipage}%
+}
 
 First we will setup the environment and download and generate the dataset, then we will analyse the data, and finally we will train a machine learning algorithm using the inputs in the first subset (edx) to predict the movie ratings in the validation set (final_holdout_test).
 
@@ -47,7 +68,7 @@ The goal of this exercise is to be able to predict the movie ratings in the test
 
 This task is inspired by the Netflix challenge, which aimed to predict ratings without utilizing any user data (such as age or gender) due to privacy concerns. Ultimately, the goal is to predict which films a user would enjoy based on their previous ratings.
 
-## Data preparation
+## 1.2 Data preparation
 
 This section explains how the data is imported and prepared for further analysis. A portion of the process is based on the code provided in the course, specifically within the “01 Setup.R” script.
 
@@ -55,24 +76,19 @@ The code processes the MovieLens 10M dataset to create training (edx) and testin
 
 It begins by checking for necessary libraries, downloading the dataset, and extracting the ratings and movies files if they aren't already present. It reads and cleans the data, ensuring that columns are correctly formatted.
 
-The main dataset is created by merging ratings with movie details, and then a random subset is taken as a test set—10% of the data. To maintain consistency, only those users and movies present in the training set are included in the final test set. Any excluded rows are then added back to the training set. Finally, the code cleans up by removing unnecessary variables.
+The main dataset is created by merging ratings with movie details, and then a random subset is taken as a test set (10% of the data). To maintain consistency, only those users and movies present in the training set are included in the final test set. Any excluded rows are then added back to the training set. Finally, the code cleans up by removing unnecessary variables.
 
-# Exploratory Data Analysis
+\newpage
 
-## Structure
+# 2 Exploratory Data Analysis
+
+## 2.1 Structure
 
 This section provides an overview of the datasets used in our analysis. We have two datasets: one for training our prediction algorithm and another for testing its effectiveness.
 
 The training dataset, edx, shares the same structure as the final_holdout_test dataset, which is used for testing.
 
 The edx dataset contains approximately 9 million ratings for various movies and consists of six variables :
-
-```{r, echo=FALSE}
-data_summary <- summary(edx)
-kable(data_summary) %>% kable_styling(font_size = 9)
-```
-
-The table below outlines the variables present in the dataset :
 
 | Variable         | Description                                    |
 |------------------|------------------------------------------------|
@@ -91,33 +107,21 @@ data_summary <- data.frame(Dataset = c("edx", "final_holdout_test"),
                            Movies = c(comma(n_distinct(edx$movieId)), comma(n_distinct(final_holdout_test$movieId))),
                            Users = c(comma(n_distinct(edx$userId)), comma(n_distinct(final_holdout_test$userId))),
                            Ratings = c(comma(nrow(edx)), comma(nrow(final_holdout_test))))
-kable(data_summary) %>% kable_styling(full_width = F) %>% row_spec(0, background = "gray!20")
+kable(data_summary, align = 'l') %>% kable_styling(full_width = F)
 ```
 
-The analysis reveals that approximately 10,000 movies were rated by 70,000 users, resulting in a total of 9,000,000 ratings.
-
-The pair (movieId, userId) can be used as a primary key, as each user has rated a specific movie only once :
-
-```{r, echo=FALSE}
-data_summary <- data.frame(Dataset = c("edx", "final_holdout_test", "Overlap"),
-                           MovieUserId = c(comma(edx_unique_count),
-                                           comma(test_unique_count),
-                                           comma(overlap_count)),
-                           Ratings = c(comma(nrow(edx)), comma(nrow(final_holdout_test)), ""))
-names(data_summary)[2] <- "(movieId, userId)"
-kable(data_summary) %>% kable_styling(full_width = F) %>% row_spec(0, background = "gray!20")
-```
-
-We can also observe that a rating given by a user for a specific movie cannot appear in both the training and test datasets.
+The analysis reveals that for the edx dataset, approximately 10,000 movies were rated by 70,000 users, resulting in a total of 9,000,000 ratings.
 
 \newpage
 
-## Data Transformation
+## 2.2 Data Transformation
 
 The first few entries of the edx dataset suggest potential transformations for enhanced analysis :
 
 ```{r, echo=FALSE}
-data_summary <- head(edx)
+data_summary <- head(edx %>% select(userId, movieId,
+                                    rating, timestamp,
+                                    title, genres))
 # Replace '|' with ';' in the genres column
 data_summary$genres <- gsub("\\|", ";", data_summary$genres)
 kable(data_summary) %>% kable_styling(font_size = 9)
@@ -141,13 +145,104 @@ data_summary <- head(edx_movies %>% select(userId, movieId,
 kable(data_summary) %>% kable_styling(font_size = 9)
 ```
 
+The statistics for the modified table, focusing on the numerical variables (excluding userId and movieId, which are identifiers), are presented below :
+
+```{r, echo=FALSE}
+data_summary <- summary(edx_movies %>% select(rating, t_day_of_week, t_day, t_month, t_year, t_hour, year))
+kable(data_summary) %>% kable_styling(font_size = 9)
+```
+
 This allows us to focus on the other relevant attributes for analysis while keeping the genres information in the dataset.
 
 \newpage
 
-## Data Analysis
+## 2.3 Data Analysis
 
-### Movies
+### 2.3.1 Variables
+
+List of variables and their distinct value counts :
+
+```{r, echo=FALSE}
+# List of variables and number of distinct values
+data_summary <- edx_movies %>%
+  select(userId, movieId, t_day_of_week, t_day,
+         t_month, t_year, t_hour, title, year, genres) %>%
+  summarise(across(everything(), ~ n_distinct(.))) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Distinct_Count") %>%
+  arrange(desc(Distinct_Count))
+kable(data_summary, linesep = "", format.args = list(big.mark = ",")) %>% kable_styling()
+```
+
+There are approximately 70,000 users who have rated 10,000 movies. Notably, the number of movies slightly exceeds the number of titles, likely because some films share the same title (possibly due to remakes released years later). While there are 20 genres (see section 2.3.6 for more details), nearly 800 combinations of these genres exist. The movies were released over a span of 94 years, and the timestamps for the ratings encompass all hours of the day, every day of the week, and every month of the year.
+
+### 2.3.2 Correlations
+
+The table below presents the matrix of correlations among the variables :
+
+```{r, echo=FALSE}
+kable(correlation_matrix) %>% kable_styling(full_width = F, font_size = 8)
+```
+
+For better reading of the matrix, all values close to zero (ie between -0.1 and 0.1) have been removed or hidden in the matrix.
+
+As expected, the correlation is 0.98 between movieId and title, indicating a very strong relationship. While most movies have a unique title, some of them like remake share the same title. 
+
+We also discovered that movieId and t_year (and titleId and t_year) have a correlation of approximately 0.5, suggesting that there are movies that are consistently associated with specific timestamp years.
+
+Variance in movieId and year (0.23) suggests that certain movies may tend to receive ratings in certain years but is relatively weak.
+
+Genres correlations are generally low with other variables, e.g., 0.18 with movieId, indicating that genre alone doesn't significantly explain relationships with movie IDs.
+
+t_month has a minor negative correlation with t_year (-0.16) suggesting a slight inverse relationship, possibly indicating that as certain months progress, there might be changes affecting yearly trends.
+
+Rating : the correlations with other variables range slightly around zero, indicating that ratings do not have strong relations with user or movie identifiers or time dimensions, and therefore that user ratings will require deeper analysis.
+
+### 2.3.3 Keys
+
+The goal of our future analysis is to find which groups of variables can serve as identifiers or keys for our dataset.
+
+Research suggests that most Americans can be uniquely identified using just a combination of their zip code, sex, and birth date. In our analysis, we need to explore which combinations of variables can almost pinpoint a user's rating. These combinations should be avoided because, while they may perform well on training data, they are likely to lead to poor predictions on test data.
+
+For our current dataset, we know that the pair (movieId, userId) functions as a reliable key since each user rates a specific movie only once.
+
+The table below shows the uniqueness of combinations : the edx dataset was split into 2 parts (90%-10%), and the figures represent the number of rows in the test_set (total 900,006 rows) not in the train_set :
+
+```{r, echo=FALSE}
+kable(unique_rows_2d) %>% kable_styling(full_width = F)
+```
+
+We can observe that while the couple (userId, movieId) is unique, the couples (userId, genres) and (userId, year) represent a significant amount of observations, not enough to identify a unique observation, but still too high for the exercise.
+
+\newpage
+
+We can go further and calculate the number of unique rows for a combination of size 3 :
+
+```{r, echo=FALSE}
+kable(unique_rows_3d) %>% kable_styling(full_width = F)
+```
+
+As we can see, the first 6 rows have a significant high number of unique rows. The first 3 rows are based on movieId and userId (with either year or t_year) and therefore are unique.
+
+(userId, year, genres), (userId, t_year, genres) and (userId, t_year, year) have too many rows to be of interest.
+
+
+For the upcoming analysis, we will only consider the following combinations :  
+
+      (movieId, t_year)  
+      (userId, t_year)  
+      (t_year, genres)  
+      (movieId, year)  
+      (movieId, genres)  
+      (year, genres)  
+      (t_year, year)  
+      (movieId, t_year, year)  
+      (movieId, t_year, genres)  
+      (t_year, year, genres)  
+      (movieId, year, genres)  
+
+\newpage
+
+### 2.3.4 Movies
 
 The top five movies with the highest number of ratings each received 30,000 ratings, indicating that half of the users rated these films :
 
@@ -159,10 +254,10 @@ kable(
     list_movies %>% mutate(year = as.character(year)) %>% select(index, title, year, count),
     5, count),
   format.args = list(big.mark = ",")) %>%
-  kable_styling(full_width = F) %>% row_spec(0, background = "gray!20", extra_css = "padding: 0;")
+  kable_styling(full_width = F)
 ```
 
-### Movie Ratings Visualization
+#### Movie Ratings Visualization
 
 The left figure illustrates that a small number of movies received the majority of ratings, while most received very few.
 
@@ -172,19 +267,19 @@ To better highlight this trend, we can apply a log10 transformation to the y-axi
 plot_grid(
   list_movies %>% sample_n(1000) %>% ggplot(aes(x = index, y = count)) +
     geom_area(color = "darkblue", fill="darkblue", alpha = 0.1) +
-    theme_minimal() +
-    labs(x = "Movie", y = "Number of Ratings"),
+    theme_minimal() + theme(text = element_text(size = 9)) +
+    labs(x = "MovieId", y = "Number of Ratings"),
   list_movies %>% sample_n(1000) %>% ggplot(aes(x = index, y = count)) +
     geom_area(color = "darkblue", fill="darkblue", alpha = 0.1) +
-    theme_minimal() +
-    labs(x = "Movie", y = "Number of Ratings (log10)") +
+    theme_minimal() + theme(text = element_text(size = 9)) +
+    labs(x = "MovieId", y = "Number of Ratings (log10)") +
     scale_y_log10(),
   ncol = 2)
 ```
 
 \newpage
 
-### Movie Release and Ratings Trends
+#### Movie Release and Ratings Trends
 
 The figure on the left shows that the number of movies released per year increased significantly during the 1980s.
 
@@ -208,7 +303,38 @@ plot_grid(
   ncol = 2)
 ```
 
-### Users
+Further investigation reveals that older movies receive slightly fewer ratings (per movie) compared to more recent ones. Additionally, the number of ratings decreases significantly with the age of the movie, which is determined by the difference between the year of the rating and the year of the movie's release :
+
+```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of Ratings per Movie per year of release and number of ratings per age of movie", fig.height=2}
+# Number of Ratings per Movie per year of release,
+# and number of ratings per age of movie (difference between the timestamp year and the year of release) :
+plot_grid(
+  edx_movies %>%
+    group_by(year) %>%
+    summarize(ratio = n() / n_distinct(movieId)) %>%
+    arrange(year) %>%
+    ungroup() %>%
+    ggplot(aes(x = year, y = ratio)) +
+    geom_bar(stat = "identity", fill="darkblue", alpha = 0.8) +
+    labs(x = "Year", y = "Nb Ratings per Movie") +
+    theme_minimal(),
+  edx_movies %>%
+    mutate(age = t_year - year) %>%
+    group_by(age) %>%
+    summarize(count = n()) %>%
+    arrange(desc(count)) %>%
+    ungroup() %>%
+    ggplot(aes(x = age, y = count)) +
+    geom_bar(stat = "identity", fill="darkblue", alpha = 0.8) +
+    scale_y_continuous(labels = label_number(scale = 1e-3, suffix = "k")) +
+    labs(x = "Movie Age", y = "Ratings") +
+    theme_minimal(),
+  ncol = 2)
+```
+
+\newpage
+
+### 2.3.5 Users
 
 As previously mentioned, the edx dataset contains approximately 70,000 users. Below are the top five users with the highest number of ratings :
 
@@ -216,8 +342,6 @@ As previously mentioned, the edx dataset contains approximately 70,000 users. Be
 kable(top_n(list_users, 5, count), format.args = list(big.mark = ",")) %>%
   kable_styling(full_width = F)
 ```
-
-\newpage
 
 A small number of users account for a large proportion of ratings, as shown in the figure on the left, which illustrates that the majority of ratings come from a minority of users.
 
@@ -227,19 +351,221 @@ By applying a log10 transformation to the y-axis, we can see that all users rate
 plot_grid(
   list_users %>% sample_n(1000) %>% ggplot(aes(x = index, y = count)) +
     geom_area(color = "darkgreen", fill="darkgreen", alpha = 0.1) +
-    theme_minimal() +
-    labs(x = "User", y = "Number of Ratings"),
+    theme_minimal() + theme(text = element_text(size = 9)) +
+    labs(x = "UserId", y = "Number of Ratings"),
   list_users %>% sample_n(1000) %>% ggplot(aes(x = index, y = count)) +
     geom_area(color = "darkgreen", fill="darkgreen", alpha = 0.1) +
-    theme_minimal() +
-    labs(x = "User", y = "Number of Ratings (log10)") +
+    theme_minimal() + theme(text = element_text(size = 9)) +
+    labs(x = "UserId", y = "Number of Ratings (log10)") +
     scale_y_log10(),
   ncol = 2)
 ```
 
-### Ratings
+### 2.3.6 Genres
 
-The figures below demonstrate that the distribution of ratings can be approximated as normal when rounded :
+The table below shows the first five observations of the dataset. As we can see, each movie is associated with a genre, which may consist of a combination of different genres :
+
+```{r, echo=FALSE}
+# Top 5 observations showing genres :
+data_summary <- head(edx_movies %>% select(userId, rating, title, year, genres))
+# Replace '|' with ';' in the genres column
+data_summary$genres <- gsub("\\|", ";", data_summary$genres)
+kable(data_summary) %>% kable_styling(font_size = 9)
+```
+
+From this dataset, we can extract all unique genres, resulting in the following list:
+
+Action, Adventure, Animation, Children, Comedy, Crime, Documentary, Drama, Fantasy, Film-Noir, Horror, IMAX, Musical, Mystery, Romance, Sci-Fi, Thriller, War, Western, (no genres listed)
+
+While there are 20 distinct genres, there are 797 combinations of these genres present in the dataset.
+
+Next, we will plot the number of ratings per genre (separated):
+
+```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of ratings / Genre", fig.width=8, fig.height=4}
+list_genres %>%
+  arrange(desc(count)) %>%
+  mutate(genres = factor(genres, levels = genres)) %>%
+  ggplot(aes(x = genres, y = count)) +
+  geom_bar(stat = "identity", fill="darkcyan", alpha = 0.8) +
+  scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
+  labs(x = "Genre", y = "Ratings") +
+  theme_minimal() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+The bar chart suggests that various genres contribute differently to the total ratings. With genres like Drama and Comedy receiving the most ratings, these may indicate a wider audience appeal and are likely to be favorites among viewers.
+
+Finally, we will plot the number of ratings per genre (combined) along with the cumulative percentage :
+
+```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of ratings / Genre", fig.height=3}
+plot_grid(
+  edx_movies %>%
+    group_by(genres) %>%
+    summarize(
+      count = n(),
+      average_rating = mean(rating),
+      min_rating = min(rating),
+      max_rating = max(rating),
+      .groups = 'drop') %>%
+    arrange(desc(count)) %>%
+    mutate(index = row_number()) %>%
+    ggplot(aes(x = index, y = count)) +
+    geom_bar(stat = "identity", fill="darkcyan", alpha = 0.8) +
+    scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
+    labs(x = "Genre ID (combination)", y = "Ratings") +
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)),
+
+  edx_movies %>%
+    group_by(genres) %>%
+    summarize(
+      count = n(),
+      average_rating = mean(rating),
+      min_rating = min(rating),
+      max_rating = max(rating),
+      .groups = 'drop') %>%
+    arrange(desc(count)) %>%
+    mutate(index = row_number(),
+           percentage = (count / sum(count)) * 100) %>%
+    mutate(cumulative_count = cumsum(count),
+           total_count = sum(count),
+           cumulative_percentage = (cumulative_count / total_count) * 100) %>%
+    ggplot(aes(x = index, y = cumulative_percentage)) +
+    geom_area(color = "darkcyan", fill="darkcyan", alpha = 0.1) +
+    scale_y_continuous(
+      labels = label_number(scale = 1, suffix = "%"),  # Scale for percentage labels
+      breaks = seq(0, 100, by = 10)) +
+    labs(x = "Genre ID (combination)", y = "Cumulative percentage of Ratings") +
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)),
+
+  ncol = 2)
+```
+
+The initial steep decline in the histogram indicates that a limited number of genre combinations are common, while the majority of genres are represented infrequently.
+
+The cumulative percentage plot suggests that a small number of genre IDs contribute significantly to the overall dataset : the first 200 genres (out of 797) count for 90% of the ratings.
+
+The following plot shows the number of ratings per movie, per genre and per year :
+
+```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of ratings per Genre and Year", fig.height=4}
+edx_movies %>%
+  group_by(year, movieId, genres) %>%
+  summarize(
+    count_ratings = n(),
+    .groups = 'drop') %>%
+  separate_rows(genres, sep = "\\|") %>%
+  group_by(year, genres) %>%
+  summarize(
+    count = sum(count_ratings),
+    ratings = sum(count_ratings) / n(),
+    .groups = 'drop') %>%
+  ggplot(aes(x = year, y = ratings, color = genres)) +
+  geom_smooth(se = FALSE, method = "loess", size = 1, formula = y ~ x) +
+  labs(x = "Year", y = "Number of Ratings per movie") +
+  scale_y_continuous(labels = label_number(scale = 1e-3, suffix = "k")) +
+  theme_minimal() + theme(text = element_text(size = 8), legend.position = "bottom", legend.key.size = unit(0.1, "cm"))
+```
+
+The plot indicated that some genres (Animation, Children, Fantasy, Mystery...) were popular in the 1940s and regained some popularity in the 1990s.
+
+Other genres have seen their number of ratings per movie increase more recently, maybe as the number of movies released increased in the 1980s.
+
+\newpage
+
+The following plot shows the number of ratings per genre over the years :
+
+```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of ratings per Genre and Year", fig.height=4}
+edx_movies %>%
+  group_by(year, genres) %>%
+  summarize(
+    count_ratings = n(),
+    .groups = 'drop') %>%
+  separate_rows(genres, sep = "\\|") %>%
+  group_by(year, genres) %>%
+  summarize(
+    count = sum(count_ratings),
+    .groups = 'drop') %>%
+  ggplot(aes(x = year, y = count, color = genres)) +
+geom_smooth(se = FALSE, method = "loess", size = 1, formula = y ~ x) +
+  labs(x = "Year", y = "Number of Ratings") +
+  scale_y_continuous(labels = label_number(scale = 1e-3, suffix = "k")) +
+theme_minimal() + theme(text = element_text(size = 8), legend.position = "bottom", legend.key.size = unit(0.1, "cm"))
+```
+
+Most genres experience a marked increase in ratings around the 1980s, indicating a proliferation of films, especially in genres like Action, Adventure, and Comedy.
+
+By the late 2000s, genres such as Action, Comedy, and Drama show significantly higher ratings compared to others, indicating their popularity among viewers.
+
+The decrease in ratings in 2010 is likely because users may not have had the time to rate the latest movies.
+
+\newpage
+
+### 2.3.7 Timestamp
+
+We will now study the impact of the timestamp (data and time a rating was given) on the other variables.
+
+The following five plots show the number of ratings per date (timestamp), grouped by movie, user, genres or year of release for the last four ones :
+
+```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of ratings per date (timestamp)", fig.height=5}
+plot_grid(
+  edx_movies %>%
+    group_by(t_year, t_month) %>%
+    summarise(count = n(), .groups = 'drop') %>%
+    mutate(year_month = as.Date(paste(t_year, t_month, "01", sep = "-"))) %>%
+    ggplot(aes(x = year_month, y = count)) +
+    geom_area(color = "black", fill="black", alpha = 0.1) +
+    labs(title = "Total",x = "Timestamp", y = "Number of Ratings") +
+    scale_y_continuous(labels = label_number(scale = 1e-3, suffix = "k")) +
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)),
+
+  edx_movies %>%
+    group_by(t_year, t_month) %>%
+    summarise(count = n_distinct(movieId), .groups = 'drop') %>%
+    mutate(year_month = as.Date(paste(t_year, t_month, "01", sep = "-"))) %>%
+    ggplot(aes(x = year_month, y = count)) +
+    geom_area(color = "darkblue", fill="darkblue", alpha = 0.1) +
+    labs(title = "Movies",x = "Timestamp", y = "Number of Ratings") +
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)),
+
+  edx_movies %>%
+    group_by(t_year, t_month) %>%
+    summarise(count = n_distinct(userId), .groups = 'drop') %>%
+    mutate(year_month = as.Date(paste(t_year, t_month, "01", sep = "-"))) %>%
+    ggplot(aes(x = year_month, y = count)) +
+    geom_area(color = "darkgreen", fill="darkgreen", alpha = 0.1) +
+    labs(title = "Users",x = "Timestamp", y = "Number of Ratings") +
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)),
+
+  edx_movies %>%
+    group_by(t_year, t_month) %>%
+    summarise(count = n_distinct(genres), .groups = 'drop') %>%
+    mutate(year_month = as.Date(paste(t_year, t_month, "01", sep = "-"))) %>%
+    ggplot(aes(x = year_month, y = count)) +
+    geom_area(color = "darkcyan", fill="darkcyan", alpha = 0.1) +
+    labs(title = "Genres",x = "Timestamp", y = "Number of Ratings") +
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)),
+
+  edx_movies %>%
+    group_by(t_year, t_month) %>%
+    summarise(count = n_distinct(year), .groups = 'drop') %>%
+    mutate(year_month = as.Date(paste(t_year, t_month, "01", sep = "-"))) %>%
+    ggplot(aes(x = year_month, y = count)) +
+    geom_area(color = "orange", fill="orange", alpha = 0.1) +
+    labs(title = "Year of Release",x = "Timestamp", y = "Number of Ratings") +
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)),
+  
+ncol = 2)
+```
+
+The total and user plots, along with the movie, genres, and release year plots, all share a similar shape, indicating a relationship among them.
+
+We observe some variation across all five plots, and unlike the previous plots for release year, there isn’t a sustained period of low ratings.
+
+This suggests that the timestamp may be a more effective variable for predicting ratings than the release year, as it avoids low ratings for movies or users.
+
+\newpage
+
+### 2.3.8 Ratings
+
+Users assigned more full marks than half marks. The figures below illustrate that the distribution of ratings can be approximated as normal when rounded :
 
 ```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of ratings", fig.height=2}
 plot_grid(
@@ -266,74 +592,13 @@ data_summary <- data.frame(Type = c("Average", "Standard Deviation"),
 kable(data_summary) %>% kable_styling(full_width = F)
 ```
 
-\newpage
-
-### Variables
-
-List of variables and their distinct value counts :
-
-```{r, echo=FALSE}
-# List of variables and number of distinct values
-data_summary <- edx_movies %>%
-  select(userId, movieId, t_day_of_week, t_day,
-         t_month, t_year, t_hour, title, year, genres) %>%
-  summarise(across(everything(), ~ n_distinct(.))) %>%
-  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Distinct_Count") %>%
-  arrange(desc(Distinct_Count))
-kable(data_summary, linesep = "", format.args = list(big.mark = ",")) %>% kable_styling()
-```
-
-### Distribution of Average Ratings per Variable
-
-We will consider only those variables that have a sufficient number of distinct values : userId, movieId, title and genres.  
-
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Distribution of ratings", fig.height=4}
-plot_grid(
-  ggplot(avg_rating_per_user, aes(x = avg_rating)) +
-    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
-    labs(title = "User", x = "Rating", y = "Count"),
-
-  ggplot(avg_rating_per_movie, aes(x = avg_rating)) +
-    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
-    labs(title = "Movie", x = "Rating", y = "Count"),
-  
-  ggplot(avg_rating_per_title, aes(x = avg_rating)) +
-    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
-    labs(title = "Title", x = "Rating", y = "Count"),
-  
-  ggplot(avg_rating_per_genres, aes(x = avg_rating)) +
-    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
-    labs(title = "Genres", x = "Rating", y = "Count"),
-  
-  ncol = 2, align = 'hv', rel_heights = c(2, 2, 2))
-```
+We will now investigate whether any variable has an impact on the ratings and, consequently, if it can assist in predicting ratings.
 
 \newpage
 
-We will now compare Title against Movie as the graphs look very similar :
+#### 2.3.8.1 Variables with Low Distinct Values  
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Comparison of the Distribution of ratings", fig.width=4, fig.height=3}
-ggplot(bind_rows(avg_rating_per_movie, avg_rating_per_title), aes(x = avg_rating, fill = source)) +
-  geom_histogram(position = "identity", alpha = 0.8, bins = 30) +
-  scale_color_brewer(palette="Accent") + 
-  labs(x = "Rating", y = "Count") +
-  theme_minimal() + theme(legend.position = "top") +
-  scale_fill_manual(values = c("Movie" = "darkred", "Title" = "grey"))
-```
-
-For the upcoming analysis, we will focus exclusively on the movie, user, and genres variables, which have a high number of unique values, while excluding the title variable.
-
-### Variables with Low Distinct Values
-
-We will now examine variables that have a low number of distinct values, specifically the timestamp information and the year of release.
+We will start by analyzing variables with a low number of distinct values, specifically the timestamp information and the year of release. The aim is to determine whether there are specific times or days when users tend to give higher or lower ratings, or if the year of release influences the ratings :
 
 ```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Distribution of ratings per variable", fig.height=3}
 plot_grid(
@@ -396,11 +661,163 @@ plot_grid(
 
 As observed, only the timestamp (year) and year of release exhibit sufficient variation (considering both the mean and minimum values for the timestamp) to be included in the forthcoming analysis.
 
-# Predictions
+Note that for both year (timestamp) and year of release, the variation was mainly when there is a low number of ratings, which means it may not be sufficient for predicting the ratings.
 
-Given the big number of ratings (9 millions) we won't use any training algorithm such as lm as they would require an extensive time to compute. We will try to estimate the ratings using average and biases.
+\newpage
 
-The goal of this exercise is to get the minimum root mean square error (RMSE). The RMSE can be defined as :
+#### 2.3.8.2 Distribution of Average Ratings per Variable  
+
+We will now concentrate exclusively on the variables that have a sufficient number of distinct values: userId, movieId, title and year. We can also consider the combination timestamp month-year as it has more than 150 values. Our goal is to determine whether their distributions closely resemble that of the ratings. The figures below illustrate the distribution of ratings for these variables :
+
+```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Distribution of ratings", fig.height=4}
+plot_grid(
+  ggplot(avg_rating_per_user, aes(x = avg_rating)) +
+    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
+    scale_color_brewer(palette="Accent") + 
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
+    labs(x = "Rating", y = "Users"),
+  
+  ggplot(avg_rating_per_movie, aes(x = avg_rating)) +
+    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
+    scale_color_brewer(palette="Accent") + 
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
+    labs(x = "Rating", y = "Movies"),
+  
+  ggplot(avg_rating_per_genres, aes(x = avg_rating)) +
+    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
+    scale_color_brewer(palette="Accent") + 
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
+    labs(x = "Rating", y = "Genres"),
+  
+  ggplot(avg_rating_per_year, aes(x = avg_rating)) +
+    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
+    scale_color_brewer(palette="Accent") + 
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
+    labs(x = "Rating", y = "Year"),
+
+  ggplot(avg_rating_per_t_month_year, aes(x = avg_rating)) +
+    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
+    scale_color_brewer(palette="Accent") + 
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
+    labs(x = "Rating", y = "T Month Year"),
+  
+  ncol = 2, align = 'hv', rel_heights = c(2, 2, 2))
+```
+
+We want the prediction to be as close as possible to the rating, so they should have the same shape.
+
+The year plot is not normal and won't be considered for future work.
+
+The other four plots show approximately a normal distribution centered around 3.5 to 4, similar to the rounded ratings. There are a good start to try to predict the ratings.
+
+\newpage
+
+We can enhance our analysis by comparing the average rating for each variable (expressed as a percentage) with the distribution of ratings :
+
+```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Distribution of ratings", fig.height=4}
+plot_grid(
+  ggplot() +
+    geom_histogram(data = avg_rating_per_user, aes(x = avg_rating, y = after_stat(count) / sum(after_stat(count)) * 100), 
+                   color = "darkred", fill = "darkred", alpha = 0.1, position = "dodge", bins = 10) +
+    geom_line(data = edx_movies_summarized, aes(x = rating, y = percentage), color = "darkred", size = 1, linetype = "dashed") +
+    scale_color_brewer(palette = "Accent") + 
+    theme_minimal() + 
+    theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
+    labs(x = "Rating", y = "User") +
+    scale_y_continuous(labels = percent_format(scale = 1)) +
+    scale_x_continuous(breaks = seq(1, 5, 1)),
+  
+  ggplot() +
+    geom_histogram(data = avg_rating_per_movie, aes(x = avg_rating, y = after_stat(count) / sum(after_stat(count)) * 100), 
+                   color = "darkred", fill = "darkred", alpha = 0.1, position = "dodge", bins = 10) +
+    geom_line(data = edx_movies_summarized, aes(x = rating, y = percentage), color = "darkred", size = 1, linetype = "dashed") +
+    scale_color_brewer(palette = "Accent") + 
+    theme_minimal() + 
+    theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
+    labs(x = "Rating", y = "Movie") +
+    scale_y_continuous(labels = percent_format(scale = 1)) +
+    scale_x_continuous(breaks = seq(1, 5, 1)),
+  
+  ggplot() +
+    geom_histogram(data = avg_rating_per_genres, aes(x = avg_rating, y = after_stat(count) / sum(after_stat(count)) * 100), 
+                   color = "darkred", fill = "darkred", alpha = 0.1, position = "dodge", bins = 10) +
+    geom_line(data = edx_movies_summarized, aes(x = rating, y = percentage), color = "darkred", size = 1, linetype = "dashed") +
+    scale_color_brewer(palette = "Accent") + 
+    theme_minimal() + 
+    theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
+    labs(x = "Rating", y = "Genres") +
+    scale_y_continuous(labels = percent_format(scale = 1)) +
+    scale_x_continuous(breaks = seq(1, 5, 1)),
+  
+  ggplot() +
+    geom_histogram(data = avg_rating_per_t_month_year, aes(x = avg_rating, y = after_stat(count) / sum(after_stat(count)) * 100), 
+                   color = "darkred", fill = "darkred", alpha = 0.1, position = "dodge", bins = 10) +
+    geom_line(data = edx_movies_summarized, aes(x = rating, y = percentage), color = "darkred", size = 1, linetype = "dashed") +
+    scale_color_brewer(palette = "Accent") + 
+    theme_minimal() + 
+    theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
+    labs(x = "Rating", y = "T Month Year") +
+    scale_y_continuous(labels = percent_format(scale = 1)) +
+    scale_x_continuous(breaks = seq(1, 5, 1)),
+  
+  ncol = 2, align = 'hv', rel_heights = c(2, 2, 2))
+```
+We can see that the movie distribution plot is the closest to the rating one, followed by the user and genres plots. The timestamp month-year isn't close to the rating distribution and won't be considered in future work.
+
+\newpage
+
+#### 2.3.8.3 Distribution of Average Ratings per group of Variables  
+
+The goal is to utilize a couple of variables to calculate the bias. In this example, the rating is displayed based on the movieId and the year, specifically for the user who provided the highest number of ratings :
+
+```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Rating per user, year (timestamp) and movie", fig.height=5}
+persp(interp_data$x, interp_data$y, interp_data$z, main = "Ratings", 
+      xlab = "Movie ID", ylab = "Year", zlab = "Rating",
+      theta = 30, phi = 30, expand = 0.5, col = "lightblue", 
+      shade = 0.5)
+```
+
+A representation of a 3D graph can also be made in 2D by grouping variables altogether :
+
+\small
+```{r eval=FALSE}
+avg_rating_per_movieId_year <- edx_movies %>%
+  group_by(movieId, year) %>%
+  summarise(avg_rating = mean(rating)) %>%
+  ungroup()
+```
+\normalsize
+
+or for a 4D graph : 
+
+\small
+```{r eval=FALSE}
+avg_rating_per_movieId_year_genres <- edx_movies %>%
+  group_by(movieId, year, genres) %>%
+  summarise(avg_rating = mean(rating)) %>%
+  ungroup()
+```
+\normalsize
+
+\newpage
+
+The following plots show the distribution of ratings per group of variables :
+
+```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Comparison of the Distribution of ratings", fig.height=5}
+plot_grid(plotlist = plot_list, ncol = 3)
+```
+
+The (movieId, t_year), (movieId, t_year, year) and (movieId, t_year, genres) combinations have approximately the same shape and the closest to the rating one (dashed line).
+
+Then the (movieId, year), (movieId, genres), (movieId, year, genres) and (t_year, genres) combinations show a good approximation of the rating shape.
+
+The (t_year, year, genres), (userId, t_year) and (year, genres) combinations have a good approximation, and the (t_year, year) one doesn't show a good one.
+
+\newpage
+
+# 3 Predictions
+
+The objective of this exercise is to predict ratings and achieve the lowest possible root mean square error (RMSE). RMSE is defined as :
 
 \begin{equation}
 \Large
@@ -412,13 +829,47 @@ where :
 \( \hat{y}_{i} \) : The predicted values (model outputs).  
 \( N \): The number of observations.  
 
-## Target
+## 3.1 Target
 
-The target RMSE we want to achieve (get a lower value) is : RMSE = 0.86490
+The target RMSE we aim to achieve (a lower value) is: RMSE = 0.86490.
 
-## Average
+## 3.2 Linear Regression
+
+The first approach involves using a linear regression model to train on the training dataset (edx_movies) and then applying it to predict ratings on the test dataset. We will compare these predictions against the original ratings to calculate the RMSE.
+
+However, given that the training dataset contains 9 million observations, it may be challenging to train a model efficiently.
+
+The following code demonstrates how to train and test a linear regression model using the edx_movies dataset with the movieId and userId variables :
+
+\small
+```{r eval=FALSE}
+linear_model <- lm(rating ~ movieId + userId, data = edx_movies)
+predictions <- predict(linear_model, newdata = edx_movies)
+RMSE(edx_movies$rating, predictions)
+```
+\normalsize
+
+The returned RMSE is 1.060306
+
+To reduce this error, we can consider including additional variables in the prediction model. However, adding just one more variable leads to a memory error:
+
+\small
+```{r eval=FALSE}
+linear_model <- lm(rating ~ movieId + userId + genres, data = edx_movies)
+# Error: cannot allocate vector of size 53.6 Gb
+predictions <- predict(linear_model, newdata = edx_movies)
+RMSE(edx_movies$rating, predictions)
+```
+\normalsize
+
+Other machine learning models, such as random forests, also encounter similar memory errors.
+
+In conclusion, due to the limitations imposed by memory and processing resources, we need to explore alternative methods for calculating our predictions.
+
+## 3.3 Average
 
 The average for the predictions is : $\mu$ = 3.512465
+
 If we choose a constant number for the predictions, then $\mu$ will be the one which will give the minimum RMSE :
 
 \begin{equation}
@@ -434,8 +885,6 @@ The error can be defined as :
 \Large
 \epsilon_{i} = \hat{y}_{i} - y_{i}
 \end{equation}
-
-\newpage
 
 The following plots illustrate the distribution of ratings in descending order, with the average value represented by a horizontal orange line. The plot on the right depicts the distribution of errors :
 
@@ -459,7 +908,7 @@ plot_grid(
   ncol = 2, align = 'hv', rel_heights = c(2, 2))
 ```
 
-## Bias (simple)
+## 3.4 Bias (simple)
 
 The next step is to introduce a bias so the prediction can be written :
 \begin{equation}
@@ -470,7 +919,7 @@ The next step is to introduce a bias so the prediction can be written :
 with :
 \begin{equation}
 \Large
-b_{v,i} = \frac{1}{N} \sum_{j} \left( y_{j} - \mu \right)
+b_{v,i} = \frac{1}{N} \sum_{j} \left( y_{i,j} - \mu \right)
 \end{equation}
 
 where :  
@@ -479,7 +928,7 @@ where :
 
 \newpage
 
-The figure below illustrates our objective. For each movie (or user or genre), we calculate the average rating. In this example, there are three movies, each represented by different colors, with individual points indicating their ratings. The line or segment displays the average rating for each specific movie (or user or genre). The orange line shows the global average :
+The figure below illustrates our objective. For each movie, we calculate the average rating. In this example, there are three movies, each represented by different colors, with individual points indicating their ratings. The line or segment displays the average rating for each specific movie. The orange line shows the global average :
 
 ```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Bias", fig.width=4, fig.height=3}
 plot_bias + 
@@ -489,29 +938,25 @@ plot_bias +
   geom_hline(yintercept = mu, color = "orange", linetype = "dashed", size = 1)
 ```
 
-During the prediction process, we will default to the overall average rating. We will then adjust this by adding the difference between the average rating for each movie (or user or genre) and the global average \(\mu\), with this difference representing the bias.
+During the prediction process, we will default to the overall average rating. We will then adjust this by adding the difference between the average rating for each movie and the global average \(\mu\), with this difference representing the bias.
 
-If the same movie (or user or genre) appears in the test dataset, we will use its average rating. Otherwise, we will predict the global average from the training dataset. This approach should result in a lower RMSE.
+If the same movie appears in the test dataset, we will use its average rating. Otherwise, we will predict the global average from the training dataset. This approach should result in a lower RMSE.
 
-The table below presents the RMSE values for different prediction types used in our analysis : average and bias for Movie, User, Genres, Year(timestamp) and Year (release).
+The table below presents the RMSE values for different prediction types used in our analysis : average and bias for Movie, User, and Genres. This choice was due to the comparison of the distribution of average ratings between User, Movie, Genres and Year (timestamp) shown in section 2.3.8.2.
 
 ```{r, echo=FALSE}
 kable(results %>%
-  filter(Type %in% c("Target", "Average", "Movie", "User", "Genres", "Year (timestamp)", "Year (release)"))) %>%
+  filter(Type %in% c("Target", "Average", "Movie", "User", "Genres"))) %>%
   kable_styling(full_width = F)
 ```
 
-* **Target**: The RMSE for the target model is 0.8649000, indicating the maximum value of the RMSE we want to get.
-* **Average**: The baseline RMSE calculated using the global average is 1.0603313, which serves as a reference point.
-* **Movie**: When predictions are made based on individual movie averages, the RMSE is 0.9423475, showing improved accuracy compared to the average.
-* **User**: Prediction based on user-specific averages yields an RMSE of 0.9700086, which is slightly higher than the movie-based predictions.
-* **Genres**: Using genre averages results in an RMSE of 1.0179838, indicating diminished accuracy compared to both movie and user averages.
-* **Year (timestamp)**: The RMSE for the year based on timestamp data stands at 1.0585990, showing median accuracy.
-* **Year (release)**: Similarly, predictions based on the release year have an RMSE of 1.0493440, which also indicates average performance.
+The table above shows that predictions based on movies produce the best results compared to the other features considered. Therefore, we will concentrate on using the movie variable for future work.
 
-In summary, the table demonstrates that the predictions based on movies yield the best results among the other features considered.
+\newpage
 
-The following four plots illustrate the distribution of errors for the biases associated with movies, users, genres, and the year (timestamp). We have excluded the release year, as its RMSE is very similar to that of the timestamp year. Ideally, we want the errors to be as close to zero as possible. The plots clearly indicate that the timestamp year yields the highest errors, while the genre bias performs better but still falls short. The movie bias demonstrates the best performance, followed closely by the user bias.
+The following four plots illustrate the distribution of errors for the biases associated with movies, users and genres. Ideally, we want the errors to be as close to zero as possible. The plots clearly indicate that the genre bias falls short. The movie bias demonstrates the best performance, followed closely by the user bias.
+
+This trend aligns with the RMSE results obtained earlier.
 
 ```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Distribution of error (Bias)", fig.height=4}
 # Distribution of the error for the bias :
@@ -536,14 +981,7 @@ plot_grid(
     scale_color_brewer(palette="Accent") + 
     theme_minimal() + theme(legend.position = "top") +
     labs(x = "Error", y = "Genres"),
-  
-  ggplot(edx_movies, aes(x = rating - mu - b_ty)) +
-    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-    scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top") +
-    labs(x = "Error", y = "Year (timestamp)"),
-  
+
   ncol = 2, align = 'hv', rel_heights = c(2, 2, 2))
 ```
 
@@ -559,7 +997,7 @@ data_summary <- edx_sample %>% select(userId, movieId, title, year, rating, pred
 kable(data_summary) %>% kable_styling(font_size = 9)
 ```
 
-## Bias (Multiple)
+## 3.5 Bias (Multiple)
 
 The next step is to introduce a second bias so the prediction can be written :
 \begin{equation}
@@ -578,18 +1016,18 @@ However, we can even fine tune the calculation of the bias. If we keep the same 
 
 \begin{equation}
 \Large
-b_{w,i} = \frac{1}{N} \sum_{j} \left( y_{j} - \mu - b_{v,j} \right)
+b_{w,i} = \frac{1}{N} \sum_{j} \left( y_{i,j} - \mu - b_{v,j} \right)
 \end{equation}
 
 The first bias is defined as the difference between the overall average and the average for a specific movie (or user or genre).
 
-However, the definition of the second bias has changed. When the first bias pertains to the movie, the second bias—applicable to the user—will be the difference between the average rating for a specific user and the average of the predicted ratings for the movies that this user has rated.
+The definition of the second bias has changed. When the first bias pertains to the movie, the second bias—applicable to the user—will be the difference between the average rating for a specific user and the average of the predicted ratings for the movies that this user has rated.
 
-The table below presents the RMSE values for different prediction types used in our analysis : average and bias for Movie, and the multiple biases applied to Movie and User, and all variables : Movie, User, Genres, Year(timestamp) and Year (release).
+The table below presents the RMSE values for different prediction types used in our analysis : average and bias for Movie, and the multiple biases applied to Movie and User, and Movie, User and Genres.
 
 ```{r, echo=FALSE}
 kable(results %>%
-  filter(Type %in% c("Target", "Average", "Movie", "Movie + User", "All"))) %>%
+  filter(Type %in% c("Target", "Average", "Movie", "Movie + User", "Movie + User + Genres"))) %>%
   kable_styling(full_width = F)
 ```
 
@@ -598,15 +1036,18 @@ kable(results %>%
 The following plot show the distribution of errors for the Movie bias (simple) and the Movie + User one (multiple) :
 
 ```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Comparison of the Distribution of errors", fig.width=4, fig.height=3}
-ggplot(
-  bind_rows(edx_movies %>% mutate(err = rating - mu - b_m, Type = "Movie") %>% select(rating, err, Type),
-            edx_movies %>% mutate(err = rating - mu - b_m - b_mu, Type = "Movie+User") %>% select(rating, err, Type)),
-  aes(x = err, fill = Type)) +
-  geom_histogram(position = "identity", alpha = 0.8, bins = 30) +
-  scale_color_brewer(palette="Accent") + 
-  labs(x = "Rating", y = "Count") +
-  theme_minimal() + theme(legend.position = "top") +
-  scale_fill_manual(values = c("Movie" = "darkred", "Movie+User" = "grey"))
+bind_rows(
+  edx_movies %>% mutate(err = rating - mu - b_m, Type = "Movie") %>% select(rating, err, Type),
+  edx_movies %>% mutate(err = rating - mu - b_m - b_mu, Type = "Movie+User") %>% select(rating, err, Type)
+) %>%
+  group_by(Type) %>%
+  do(data.frame(density = density(.$err)$y, err = density(.$err)$x)) %>%
+  ggplot(aes(x = err, y = density, color = Type)) +
+  geom_line(size = 1) +  # Use geom_line for lines instead of areas
+  scale_color_manual(values = c("Movie" = "darkred", "Movie+User" = "grey")) +
+  labs(x = "Error", y = "Density") +
+  theme_minimal() + 
+  theme(legend.position = "top")
 ```
 
 As an example, some predictions for the movie and user biases are shown in the table below :
@@ -616,7 +1057,7 @@ data_summary <- edx_sample %>% select(userId, movieId, title, year, rating, pred
 kable(data_summary) %>% kable_styling(font_size = 9)
 ```
 
-## Regularisation
+## 3.6 Regularisation
 
 Regularization adjusts the model's bias by incorporating penalty terms into the loss function. This adjustment helps to tune the model's complexity, making it more robust against overfitting. By adding penalties to large coefficients, regularization reduces the influence of outliers. This results in a model that doesn’t react excessively to extreme values in the data.
 
@@ -645,46 +1086,66 @@ ggplot(mapping = aes(x = lambdas, y = rmse_arr)) +
 
 The minimum value is reached when $\lambda$ = 0.5, the RMSE is then **0.8566952**.
 
-This result is higher than with the previous method and not really below the Movie + User method :
+This result is a litle bit below the Movie + User method :
 
 ```{r, echo=FALSE}
 kable(results %>%
-  filter(Type %in% c("Target", "Average", "Movie", "Movie + User", "All", "Regularisation (Movie + User)"))) %>%
+  filter(Type %in% c("Target", "Average", "Movie", "Movie + User", "Regularisation (Movie + User)"))) %>%
   kable_styling(full_width = F)
 ```
 
 \newpage
 
-## Multi-dimension bias
+## 3.7 Multi-dimension bias
 
-The idea is to use a couple of variables to calculate the bias.
+As we discussed earlier in section 2.3.8.3, we can estimate ratings using one or more variables.
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Rating per user, year (timestamp) and movie", fig.height=4}
-df <- edx_movies %>% sample_n(50)
-scatterplot3d::scatterplot3d(df$userId, df$t_year, df$rating, color = df$movieId, pch = 16,
-                             grid = TRUE, box = FALSE, xlab = "User ID", 
-                             ylab = "Year", zlab = "Rating", zlim = c(0, 5))
+Now, we will compare the RMSE values obtained by replacing the biases for Movies, Users, and Genres with different combinations :  
+
+movieId   ->    (movieId, t_year)   
+userId    ->    (userId, t_year)  
+genres    ->    (movieId, t_year, genres)  
+
+The rationale for these combinations is as follows :  
+
+ - The pair (movieId, t_year) showed the best distribution shape in section 2.3.8.3.  
+ - The combination (userId, t_year) was the only one incorporating userId that had a reasonably good distribution.  
+ - The group (movieId, t_year, genres) provided the best distribution of ratings that included the genres variable.  
+
+The following R code performs bias calculation on (movieId, t_year) based on the edx_movies dataset and joins the results back into the dataset :
+
+```{r eval=FALSE}
+# Calculate bias for each movie and year, and join to the edx_movies dataset
+b_v <- edx_movies %>%
+  group_by(movieId, t_year) %>%
+  summarise(b_v = mean(rating - mu))
+
+edx_movies <- edx_movies %>%
+  left_join(b_v, by = c("movieId", "t_year")) %>%
+  mutate(b_v = replace_na(b_v, 0))
 ```
 
-The table below displays for each couple of variables the number of rows in final_holdout_test not in the edx dataset :
+The table below illustrate the comparison of RMSEs between the Movie, User and Genres variables, and the groups variables :
 
 ```{r, echo=FALSE}
-kable(unique_rows, format.args = list(big.mark = ",")) %>%
+# Define the desired order for the filter
+desired_order <- c("Target", "Average", "Movie", "movieId, t_year", 
+                   "User", "userId, t_year", "Genres", "t_year, year, genres")
+# Filter and order the results
+kable(results %>%
+  filter(Type %in% desired_order) %>%
+  mutate(Type = factor(Type, levels = desired_order)) %>%
+  arrange(Type)) %>%
   kable_styling(full_width = F)
 ```
 
-The more rows only in final_holdout_test, the better RMSE we will get in the training set, but we will probably also get a high RMSE in the test set.
+In each case, we achieve a lower RMSE by utilizing a combination of variables rather than relying on a single variable.
 
-We can even treat three variables as a triplet. The table below shows, for each combination of these three variables, how many rows in final_holdout_test are absent from the edx dataset :
-
-```{r, echo=FALSE}
-kable(unique_rows_3d, format.args = list(big.mark = ",")) %>%
-  kable_styling(full_width = F)
-```
-
-As we saw earlier, we had the lowest RMSE by applying a bias on the movie variable before the user one, so we will continue with the couples (movieId, t_year), (userId, t_year) and then (t_year, year, title).
+As we saw before, we had the lowest RMSE by applying a bias on the movie variable before the user and the genres ones, so we will continue with the groups (movieId, t_year), (userId, t_year) and then (movieId, t_year, genres).
 
 To further reduce the RMSE, we will also apply a regularization with the same value of $\lambda$ as found earlier (0.5).
+
+\newpage
 
 The formulas for the 3 bias will then be :
 
@@ -702,8 +1163,6 @@ b_{w} = \frac{\displaystyle\sum_{j} (y_{j} - \mu - b_{v})}{N + \lambda}
 \Large
 b_{x} = \frac{\displaystyle\sum_{j} (y_{j} - \mu - b_{v} - b_{w})}{N + \lambda}
 \end{equation}
-
-\newpage
 
 The following R code performs bias calculations based on the edx_movies dataset and joins the results back into the dataset:
 
@@ -736,12 +1195,20 @@ edx_movies <- edx_movies %>%
   mutate(b_x = replace_na(b_x, 0))
 ```
 
+\newpage
+
 After incorporating the three bias components, the model achieves an RMSE of **0.8417134** on the train set.
 
 ```{r, echo=FALSE}
+# Define the desired order for the filter
+desired_order <- c("Target", "Average", "Movie",
+                   "Regularisation (Movie + User)", 
+                   "2D/3D Interaction")
+# Filter and order the results
 kable(results %>%
-  filter(Type %in% c("Target", "Average", "Movie", "Movie + User",
-                     "All", "Regularisation (Movie + User)", "2D/3D Interaction"))) %>%
+  filter(Type %in% desired_order) %>%
+  mutate(Type = factor(Type, levels = desired_order)) %>%
+  arrange(Type)) %>%
   kable_styling(full_width = F)
 ```
 
@@ -754,7 +1221,7 @@ kable(data_summary) %>% kable_styling(font_size = 9)
 
 \newpage
 
-## Clamping
+## 3.8 Clamping
 
 While we have now a relatively low RMSE of 0.8417290, further analysis of the data shows that the predicted values range from -1 to 6.2 when the ratings range from 0.5 to 5 :
 
@@ -789,11 +1256,11 @@ We now have an RMSE of **0.8412219**.
 
 \newpage
 
-# Final Test
+# 4 Final Test
 
 We now apply the latest prediction algorithm to the final_holdout_test data set.
 
-## Join the bias terms
+Join the bias terms :
 
 ```{r eval=FALSE}
 final_holdout_test_movies <- final_holdout_test_movies %>%
@@ -809,7 +1276,7 @@ final_holdout_test_movies <- final_holdout_test_movies %>%
   mutate(b_x = replace_na(b_x, 0))
 ```
 
-## Compute the predictions
+Compute the predictions :
 
 The predicted rating is the global mean ($\mu$) plus the three bias components.
 The result is then clamped to the admissible rating range (0.93 – 4.64).
@@ -821,7 +1288,7 @@ final_holdout_test_movies$pred <- pmin(pmax(mu +
                                               final_holdout_test_movies$b_x, 0.93), 4.64)
 ```
 
-## Evaluate the model
+Evaluate the model :
 
 The Root Mean Squared Error (RMSE) is computed by comparing the observed ratings with the predicted values.
 
@@ -829,13 +1296,13 @@ The Root Mean Squared Error (RMSE) is computed by comparing the observed ratings
 RMSE(final_holdout_test_movies$rating, final_holdout_test_movies$pred)
 ```
 
-The final RMSE obtained on the hold‑out test set is **\large0.8579873**.
+The final RMSE obtained on the hold‑out test set is **\large0.8579874**.
 
 \newpage
 
-# Conclusion
+# 5 Conclusion
 
-We achieved our target, obtaining an RMSE of **0.857987**, which is lower than the required maximum of **0.86490**.
+We achieved our target, obtaining an RMSE of **0.8579874**, which is lower than the required maximum of **0.86490**.
 
 To reach this result we experimented with several bias‑based methods and selected the combination that performed best on the validation data.
 

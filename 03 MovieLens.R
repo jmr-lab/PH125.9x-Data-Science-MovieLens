@@ -5,16 +5,12 @@
 library(cowplot)
 library(kableExtra)
 library(scales)
+library(akima)
 
 #####################################################
-###         Exploratory Data Analysis             ###
+###         Exploratory Data Analysis :           ###
+###         Structure                             ###
 #####################################################
-
-# Structure of the edx table : variables and stats
-summary(edx)
-
-# Structure of the final_holdout_test table : variables and stats
-summary(final_holdout_test)
 
 # Stats for both edx (train) and final_holdout_test (test dataset) :
 # Number of movies, users and ratings (rows)
@@ -24,31 +20,16 @@ data.frame(Dataset = c("edx", "final_holdout_test"),
            Users = c(comma(n_distinct(edx$userId)), comma(n_distinct(final_holdout_test$userId))),
            Ratings = c(comma(nrow(edx)), comma(nrow(final_holdout_test))))
 
-# Show that (movieId, userId) can be used as a primary key :
-edx_unique <- edx %>% distinct(movieId, userId)
-test_unique <- final_holdout_test %>% distinct(movieId, userId)
-overlap <- inner_join(edx_unique, test_unique, by = c("movieId", "userId"))
-edx_unique_count <- nrow(edx_unique)
-test_unique_count <- nrow(test_unique)
-overlap_count <- nrow(overlap)
-data_summary <- data.frame(Dataset = c("edx", "final_holdout_test", "Overlap"),
-                           MovieUserId = c(comma(edx_unique_count),
-                                           comma(test_unique_count),
-                                           comma(overlap_count)),
-                           Ratings = c(comma(nrow(edx)), comma(nrow(final_holdout_test)), ""))
-names(data_summary)[2] <- "(movieId, userId)"
-data_summary
-
-# Remove these tables as they are quite big
-rm(edx_unique, test_unique, overlap)
-
 #####################################################
 ###            Data Transformation                ###
 #####################################################
 
 # Top rows of the train dataset
 # we may change the format to markdown
-data_summary <- head(edx)
+data_summary <- head(edx %>% select(userId, movieId,
+                                    rating, timestamp,
+                                    title, genres))
+
 # Replace '|' with ';' in the genres column
 data_summary$genres <- gsub("\\|", ";", data_summary$genres)
 data_summary
@@ -77,9 +58,143 @@ head(edx_movies %>% select(userId, movieId,
                            t_year, t_hour,
                            title, year))
 
+# Structure of the edx table : variables and stats
+summary(edx)
+
+# Structure of the final_holdout_test table : variables and stats
+summary(final_holdout_test)
+
 #####################################################
 ###             Data Analysis                     ###
 #####################################################
+
+# List of variables and number of distinct values
+edx_movies %>%
+  select(userId, movieId, t_day_of_week, t_day,
+         t_month, t_year, t_hour, title, year, genres) %>%
+  summarise(across(everything(), ~ n_distinct(.))) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Distinct_Count") %>%
+  arrange(desc(Distinct_Count))
+
+# Correlation between variables :
+edx_movies_indexed <- edx_movies %>%
+  mutate(
+    userIndex = dense_rank(userId),
+    movieIndex = dense_rank(movieId),
+    genresIndex = as.numeric(factor(genres, levels = unique(genres)))
+  ) %>%
+  select(userIndex, movieIndex, rating, genresIndex, t_day_of_week, t_day, t_month, t_year, t_hour, year, movieId, title)
+df_title <- edx_movies %>% select(movieId, title) %>% arrange(movieId) %>% distinct(movieId, title) %>%
+  mutate(
+    titleIndex = as.numeric(factor(title, levels = unique(title)))
+  ) %>%
+  select(-title)
+edx_movies_indexed <- edx_movies_indexed %>%
+  left_join(df_title, by="movieId")
+
+# Calculate the correlation matrix for selected columns
+correlation_matrix <- cor(edx_movies_indexed %>%
+                            select(userId = userIndex,
+                                   movieId = movieIndex,
+                                   titleId = titleIndex,
+                                   rating,
+                                   genresId = genresIndex,
+                                   t_daywk = t_day_of_week,
+                                   t_day, t_month, t_year, t_hour, year))
+
+
+# Plot the values of title_numeric against movieId :
+#head(edx_movies_indexed)
+#edx_movies_indexed %>% ggplot(mapping = aes(x = movieIndex, y = titleIndex)) +
+#  geom_point(color = "darkblue") +
+#  labs(x = "movieId", y = "title_numeric") +
+#  theme_minimal() + theme(legend.position = "top")
+
+# Remove unused variables
+rm(edx_movies_indexed, df_title)
+
+# Format the correlation coefficients
+correlation_matrix <- round(correlation_matrix, 2)  # Round to 4 digits
+
+# Move rating to the last row and last column
+correlation_matrix <- cbind(correlation_matrix, 
+                                      rating = correlation_matrix[, "rating"])
+correlation_matrix <- rbind(correlation_matrix, 
+                                      rating = correlation_matrix["rating", ])
+
+# Remove the original rating column and row
+correlation_matrix <- correlation_matrix[-4, -4]
+
+# Remove values between -0.1 and 0.1
+correlation_matrix[correlation_matrix < 0.1 & correlation_matrix > -0.1] <- ""
+
+# View the correlation matrix
+print(correlation_matrix)
+
+# Keys
+
+# We need to see which combination can be used for this exercise :
+# obviously the couple movieId, userId will give the best outcome (RMSE = 0)
+# but it won't help when used on the final_holdout_test dataset.
+
+# Let's split the train dataset in 2 and count the number of unique rows for each couple :
+# Calculate the number of rows in the dataset
+num_rows <- nrow(edx_movies)
+# Create a random sample of indices for the 90% dataset
+train_indices <- sample(1:num_rows, size = 0.9 * num_rows)
+# Create 90% training dataset
+train_set <- edx_movies[train_indices, ]
+# Create 10% testing dataset
+test_set <- edx_movies[-train_indices, ]
+# Remove num_rows and the indices
+rm(num_rows, train_indices)
+
+# Function to get number of rows in the final dataset for each combination :
+get_nb_unique_rows <- function(combination) {
+  unique_combinations <- anti_join(test_set, train_set, by = combination)
+  # Return a data frame or tibble for the output
+  return(tibble(
+    Combination = paste(combination, collapse = ", "),
+    `Nb Rows` = nrow(unique_combinations)
+  ))
+}
+
+# All variables to be used :
+variables <- c("userId", "movieId", "t_year", "year", "genres")
+
+# Generate combinations of size 2
+combinations_2d <- combn(variables, 2, simplify = FALSE)
+
+# Apply the function to each combination and combine results into a tibble
+unique_rows_2d <- bind_rows(lapply(combinations_2d, get_nb_unique_rows)) %>%
+  arrange(desc(`Nb Rows`))
+
+# Nb rows for the train_set :
+nrow(test_set)
+
+# We reformat the numbers to add a comma :
+unique_rows_2d$`Nb Rows` <- prettyNum(unique_rows_2d$`Nb Rows`, big.mark = ",", scientific = FALSE)
+
+# Nb rows in the test_set not in the train_set :
+unique_rows_2d
+
+# 3D combinations :
+
+# Generate combinations of size 3
+combinations_3d <- combn(variables, 3, simplify = FALSE)
+
+# Apply the function to each combination and combine results into a tibble
+unique_rows_3d <- bind_rows(lapply(combinations_3d, get_nb_unique_rows)) %>%
+  arrange(desc(`Nb Rows`))
+
+# Nb rows for the train_set :
+nrow(test_set)
+
+# We reformat the numbers to add a comma :
+unique_rows_3d$`Nb Rows` <- prettyNum(unique_rows_3d$`Nb Rows`, big.mark = ",", scientific = FALSE)
+
+# Nb rows in the test_set not in the train_set :
+unique_rows_3d
 
 # List of movies with number of ratings,
 # the list is sorted by number of ratings (descending)
@@ -105,11 +220,11 @@ plot_grid(
   list_movies %>% sample_n(1000) %>% ggplot(aes(x = index, y = count)) +
     geom_area(color = "darkblue", fill="darkblue", alpha = 0.1) +
     theme_minimal() +
-    labs(x = "Movie", y = "Count"),
+    labs(x = "MovieId", y = "Count"),
   list_movies %>% sample_n(1000) %>% ggplot(aes(x = index, y = count)) +
     geom_area(color = "darkblue", fill="darkblue", alpha = 0.1) +
     theme_minimal() +
-    labs(x = "Movie", y = "Count (log10)") +
+    labs(x = "MovieId", y = "Count (log10)") +
     scale_y_log10(),
   ncol = 2)
 
@@ -130,6 +245,30 @@ plot_grid(
     theme_minimal(),
   ncol = 2)
 
+# Number of Ratings per Movie per year of release,
+# and number of ratings per age of movie (difference between the timestamp year and the year of release) :
+plot_grid(
+  edx_movies %>%
+    group_by(year) %>%
+    summarize(ratio = n() / n_distinct(movieId)) %>%
+    arrange(year) %>%
+    ungroup() %>%
+    ggplot(aes(x = year, y = ratio)) +
+    geom_bar(stat = "identity", fill="darkblue", alpha = 0.8) +
+    labs(x = "Year", y = "Nb Ratings per Movie") +
+    theme_minimal(),
+  edx_movies %>%
+    mutate(age = t_year - year) %>%
+    group_by(age) %>%
+    summarize(count = n()) %>%
+    arrange(desc(count)) %>%
+    ungroup() %>%
+    ggplot(aes(x = age, y = count)) +
+    geom_bar(stat = "identity", fill="darkblue", alpha = 0.8) +
+    scale_y_continuous(labels = label_number(scale = 1e-3, suffix = "k")) +
+    labs(x = "Movie Age", y = "Ratings") +
+    theme_minimal(),
+  ncol = 2)
 
 # List of users with number of ratings given,
 # the list is sorted by number of ratings (descending)
@@ -160,6 +299,172 @@ plot_grid(
     scale_y_log10(),
   ncol = 2)
 
+# Genres :
+head(edx_movies %>% select(userId, rating, title, year, genres))
+
+# Get a list of all genres with their number of ratings, average, min and max rating :
+list_genres <- edx_movies %>%
+  group_by(genres) %>%
+  summarize(
+    count_ratings = n(),
+    average_rating = mean(rating),
+    min_rating = min(rating),
+    max_rating = max(rating),
+    .groups = 'drop') %>%
+  separate_rows(genres, sep = "\\|") %>%
+  group_by(genres) %>%
+  summarize(
+    count = sum(count_ratings),
+    overall_average_rating = sum(average_rating * count_ratings) / sum(count_ratings),
+    min_rating = min(min_rating),
+    max_rating = max(max_rating),
+    .groups = 'drop')
+
+# List of genres :
+paste(c(list_genres$genres[!list_genres$genres %in% "(no genres listed)"],
+             list_genres$genres[list_genres$genres == "(no genres listed)"]), collapse = ", ")
+
+# Plot the number of ratings per genre (separated) :
+list_genres %>%
+  arrange(desc(count)) %>%
+  mutate(genres = factor(genres, levels = genres)) %>%
+  ggplot(aes(x = genres, y = count)) +
+  geom_bar(stat = "identity", fill="darkcyan", alpha = 0.8) +
+  scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
+  labs(x = "Genre", y = "Ratings") +
+  theme_minimal() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Plot the number of ratings per genre (combined), and the cumulative percentage :
+plot_grid(
+  edx_movies %>%
+    group_by(genres) %>%
+    summarize(
+      count = n(),
+      average_rating = mean(rating),
+      min_rating = min(rating),
+      max_rating = max(rating),
+      .groups = 'drop') %>%
+    arrange(desc(count)) %>%
+    mutate(index = row_number()) %>%
+    ggplot(aes(x = index, y = count)) +
+    geom_bar(stat = "identity", fill="darkcyan", alpha = 0.8) +
+    scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
+    labs(x = "Genre ID (combination)", y = "Ratings") +
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)),
+  
+  edx_movies %>%
+    group_by(genres) %>%
+    summarize(
+      count = n(),
+      average_rating = mean(rating),
+      min_rating = min(rating),
+      max_rating = max(rating),
+      .groups = 'drop') %>%
+    arrange(desc(count)) %>%
+    mutate(index = row_number(),
+           percentage = (count / sum(count)) * 100) %>%
+    mutate(cumulative_count = cumsum(count),
+           total_count = sum(count),
+           cumulative_percentage = (cumulative_count / total_count) * 100) %>%
+    ggplot(aes(x = index, y = cumulative_percentage)) +
+    geom_area(color = "darkcyan", fill="darkcyan", alpha = 0.1) +
+    scale_y_continuous(
+      labels = label_number(scale = 1, suffix = "%"),  # Scale for percentage labels
+      breaks = seq(0, 100, by = 10)) +
+    labs(x = "Genre ID (combination)", y = "Cumulative percentage of Ratings") +
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)),
+  
+  ncol = 2)
+
+# Plot the number of ratings per movie and per genre (combined) per year :
+edx_movies %>%
+  group_by(year, movieId, genres) %>%
+  summarize(
+    count_ratings = n(),
+    .groups = 'drop') %>%
+  separate_rows(genres, sep = "\\|") %>%
+  group_by(year, genres) %>%
+  summarize(
+    count = sum(count_ratings),
+    ratings = sum(count_ratings) / n(),
+    .groups = 'drop') %>%
+  #  filter(genres %in% c("Animation", "Children", "Fantasy", "Mystery")) %>%
+  ggplot(aes(x = year, y = ratings, color = genres)) +
+  geom_smooth(se = FALSE, method = "loess", size = 1, formula = y ~ x) +
+  labs(x = "Year", y = "Number of Ratings per movie") +
+  scale_y_continuous(labels = label_number(scale = 1e-3, suffix = "k")) +
+  theme_minimal() + theme(text = element_text(size = 8), legend.position = "bottom", legend.key.size = unit(0.1, "cm"))
+
+# Plot the number of ratings per genre (combined) per year :
+edx_movies %>%
+  group_by(year, genres) %>%
+  summarize(
+    count_ratings = n(),
+    .groups = 'drop') %>%
+  separate_rows(genres, sep = "\\|") %>%
+  group_by(year, genres) %>%
+  summarize(
+    count = sum(count_ratings),
+    .groups = 'drop') %>%
+  ggplot(aes(x = year, y = count, color = genres)) +
+  geom_smooth(se = FALSE, method = "loess", size = 1, formula = y ~ x) +
+  labs(x = "Year", y = "Number of Ratings") +
+  scale_y_continuous(labels = label_number(scale = 1e-3, suffix = "k")) +
+  theme_minimal() + theme(text = element_text(size = 8), legend.position = "bottom", legend.key.size = unit(0.1, "cm"))
+
+# Timestamp :
+
+# Number of ratings per month-year : total and per movie, user, genres and year of release
+plot_grid(
+  edx_movies %>%
+    group_by(t_year, t_month) %>%
+    summarise(count = n(), .groups = 'drop') %>%
+    mutate(year_month = as.Date(paste(t_year, t_month, "01", sep = "-"))) %>%
+    ggplot(aes(x = year_month, y = count)) +
+    geom_area(color = "black", fill="black", alpha = 0.1) +
+    labs(title = "Total",x = "Timestamp", y = "Number of Ratings") +
+    scale_y_continuous(labels = label_number(scale = 1e-3, suffix = "k")) +
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)),
+
+  edx_movies %>%
+    group_by(t_year, t_month) %>%
+    summarise(count = n_distinct(movieId), .groups = 'drop') %>%
+    mutate(year_month = as.Date(paste(t_year, t_month, "01", sep = "-"))) %>%
+    ggplot(aes(x = year_month, y = count)) +
+    geom_area(color = "darkblue", fill="darkblue", alpha = 0.1) +
+    labs(title = "Movies",x = "Timestamp", y = "Number of Ratings") +
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)),
+
+  edx_movies %>%
+    group_by(t_year, t_month) %>%
+    summarise(count = n_distinct(userId), .groups = 'drop') %>%
+    mutate(year_month = as.Date(paste(t_year, t_month, "01", sep = "-"))) %>%
+    ggplot(aes(x = year_month, y = count)) +
+    geom_area(color = "darkgreen", fill="darkgreen", alpha = 0.1) +
+    labs(title = "Users",x = "Timestamp", y = "Number of Ratings") +
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)),
+
+  edx_movies %>%
+    group_by(t_year, t_month) %>%
+    summarise(count = n_distinct(genres), .groups = 'drop') %>%
+    mutate(year_month = as.Date(paste(t_year, t_month, "01", sep = "-"))) %>%
+    ggplot(aes(x = year_month, y = count)) +
+    geom_area(color = "darkcyan", fill="darkcyan", alpha = 0.1) +
+    labs(title = "Genres",x = "Timestamp", y = "Number of Ratings") +
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)),
+
+  edx_movies %>%
+    group_by(t_year, t_month) %>%
+    summarise(count = n_distinct(year), .groups = 'drop') %>%
+    mutate(year_month = as.Date(paste(t_year, t_month, "01", sep = "-"))) %>%
+    ggplot(aes(x = year_month, y = count)) +
+    geom_area(color = "orange", fill="orange", alpha = 0.1) +
+    labs(title = "Year of Release",x = "Timestamp", y = "Number of Ratings") +
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)),
+  
+ncol = 2)
+
+
 # Distribution of Ratings.
 # If we round the ratings, we see that the distribution is approximately normal :
 plot_grid(
@@ -183,152 +488,6 @@ mu <- mean(edx$rating)
 sd <- sd(edx$rating)
 data.frame(Type = c("Average", "Standard Deviation"),
            Value = c(mu, sd))
-
-# List of variables and number of distinct values
-edx_movies %>%
-  select(userId, movieId, t_day_of_week, t_day,
-         t_month, t_year, t_hour, title, year, genres) %>%
-  summarise(across(everything(), ~ n_distinct(.))) %>%
-  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Distinct_Count") %>%
-  arrange(desc(Distinct_Count))
-
-#####################################################
-###             Correlation                       ###
-#####################################################
-
-# I couldn't find anything interesting in the correlations,
-# so the coding part is left here but commented
-# and not included in the rmd report.
-
-# Create a frequency table for genres
-#genre_frequency <- edx_movies %>%
-#  count(genres) %>%
-#  arrange(desc(n))
-
-# Create a mapping from genre to numeric value based on frequency
-#genre_mapping <- genre_frequency %>%
-#  mutate(genre_id = row_number()) %>%
-#  select(genres, genre_id)
-#edx_movies_cor <- edx_movies %>%
-#  left_join(genre_mapping, by = "genres")
-
-# Step 1: Define the variables
-#selected_variables <- c("rating", "userId", "movieId", "t_day_of_week", "t_day", "t_month", "t_year", "t_hour", "year", "genre_id")
-
-# Step 2: Create a subset of the edx_movies DataFrame
-#data_subset <- edx_movies_cor %>%
-#  select(all_of(selected_variables))
-
-# Step 3: Initialize results data frame
-#results_cor <- data.frame(Combination = character(), Correlation = numeric(), stringsAsFactors = FALSE)
-
-# Step 4: Calculate pairwise correlations including 'rating'
-#for (i in 1:(length(selected_variables) - 1)) {  # Loop through selected variables excluding rating
-#  for (j in (i + 1):length(selected_variables)) {  # Ensure j is always after i to avoid repeats
-#    var1 <- selected_variables[i]
-#    var2 <- selected_variables[j]
-    
-    # Calculate the correlation between rating and each combination of the two variables
-#    correl_value <- cor(data_subset[[var1]], data_subset[[var2]], use = "pairwise.complete.obs")
-#    if (var1 == "rating" && var2 != "rating") {
-#      results_cor <- rbind(results_cor, data.frame(Combination = paste(var1, ",", var2), Correlation = correl_value))
-#    }
-#  }
-#}
-
-# Step 5: Sort results in descending order
-#sorted_results <- results_cor %>%
-#  arrange(desc(Correlation))
-
-# Print results
-#print(sorted_results)
-
-# The correlations between every variable and rating :
-# Combination              Correlation
-# rating , t_month         0.0119793688
-# rating , t_day_of_week   0.0030305982
-# rating , userId          0.0023136427
-# rating , t_day           0.0003036543
-# rating , t_hour         -0.0004846064
-# rating , movieId        -0.0065356961
-# rating , genre_id       -0.0289062260
-# rating , t_year         -0.0353646813
-# rating , year           -0.1207187688
-
-# Remove the correlations variables :
-#rm(genre_mapping, edx_movies_cor, selected_variables, data_subset, results_cor, sorted_results)
-
-# Distribution of average ratings per variable.
-# We only consider variables with enough distinct values :
-# userId (69,878), movieId (10,677), title (10,407) and genres (797)
-
-# Average rating per user
-avg_rating_per_user <- edx_movies %>%
-  group_by(userId) %>%
-  summarise(avg_rating = mean(rating)) %>%
-  ungroup() %>%
-  mutate(source = "User")
-head(avg_rating_per_user)
-
-# Average rating per movie
-avg_rating_per_movie <- edx_movies %>%
-  group_by(movieId) %>%
-  summarise(avg_rating = mean(rating)) %>%
-  ungroup() %>%
-  mutate(source = "Movie")
-head(avg_rating_per_movie)
-
-# Average rating per title
-avg_rating_per_title <- edx_movies %>%
-  group_by(title) %>%
-  summarise(avg_rating = mean(rating)) %>%
-  ungroup() %>%
-  mutate(source = "Title")
-head(avg_rating_per_title)
-
-# Average rating per genres
-avg_rating_per_genres <- edx_movies %>%
-  group_by(genres) %>%
-  summarise(avg_rating = mean(rating)) %>%
-  ungroup() %>%
-  mutate(source = "Genres")
-head(avg_rating_per_genres)
-
-# We plot the four graphs :
-plot_grid(
-  ggplot(avg_rating_per_user, aes(x = avg_rating)) +
-    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top") +
-    labs(x = "Rating", y = "Users"),
-  
-  ggplot(avg_rating_per_movie, aes(x = avg_rating)) +
-    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top") +
-    labs(x = "Rating", y = "Movies"),
-  
-  ggplot(avg_rating_per_title, aes(x = avg_rating)) +
-    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top") +
-    labs(x = "Rating", y = "Titles"),
-  
-  ggplot(avg_rating_per_genres, aes(x = avg_rating)) +
-    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top") +
-    labs(x = "Rating", y = "Genres"),
-  
-  ncol = 2, align = 'hv', rel_heights = c(2, 2, 2))
-
-# We will now compare Title against Movie as the graphs look very similar :
-ggplot(bind_rows(avg_rating_per_movie, avg_rating_per_title), aes(x = avg_rating, fill = source)) +
-  geom_histogram(position = "identity", alpha = 0.8, bins = 30) +
-  scale_color_brewer(palette="Accent") + 
-  labs(x = "Rating", y = "Title") +
-  theme_minimal() + theme(legend.position = "top") +
-  scale_fill_manual(values = c("Movie" = "darkred", "Title" = "grey"))
 
 # Distribution of average ratings per variable.
 # We now consider variables with low number of distinct values :
@@ -452,6 +611,212 @@ plot_grid(
   
   ncol = 3, align = 'hv', rel_heights = c(2, 2, 2))
 
+# Distribution of average ratings per variable.
+# We only consider variables with enough distinct values :
+# userId (69,878), movieId (10,677), title (10,407) and genres (797)
+
+# Average rating per user
+avg_rating_per_user <- edx_movies %>%
+  group_by(userId) %>%
+  summarise(avg_rating = mean(rating)) %>%
+  ungroup() %>%
+  mutate(source = "User")
+head(avg_rating_per_user)
+
+# Average rating per movie
+avg_rating_per_movie <- edx_movies %>%
+  group_by(movieId) %>%
+  summarise(avg_rating = mean(rating)) %>%
+  ungroup() %>%
+  mutate(source = "Movie")
+head(avg_rating_per_movie)
+
+# Average rating per genres
+avg_rating_per_genres <- edx_movies %>%
+  group_by(genres) %>%
+  summarise(avg_rating = mean(rating)) %>%
+  ungroup() %>%
+  mutate(source = "Genres")
+head(avg_rating_per_genres)
+
+# Average rating per year
+#avg_rating_per_year <- edx_movies %>%
+#  group_by(year) %>%
+#  summarise(avg_rating = mean(rating)) %>%
+#  ungroup() %>%
+#  mutate(source = "Year")
+#head(avg_rating_per_year)
+
+# Average rating per t_month_year
+# We add a column t_month_year :
+edx_movies <- edx_movies %>%
+  mutate(t_month_year = as.Date(paste(t_year, t_month, "01", sep = "-")))
+avg_rating_per_t_month_year <- edx_movies %>%
+  group_by(t_month_year) %>%
+  summarise(avg_rating = mean(rating), .groups = 'drop') %>%
+  mutate(source = "T Month Year")
+
+# We plot the five graphs :
+plot_grid(
+  ggplot(avg_rating_per_user, aes(x = avg_rating)) +
+    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
+    scale_color_brewer(palette="Accent") + 
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
+    labs(x = "Rating", y = "Users"),
+  
+  ggplot(avg_rating_per_movie, aes(x = avg_rating)) +
+    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
+    scale_color_brewer(palette="Accent") + 
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
+    labs(x = "Rating", y = "Movies"),
+  
+  ggplot(avg_rating_per_genres, aes(x = avg_rating)) +
+    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
+    scale_color_brewer(palette="Accent") + 
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
+    labs(x = "Rating", y = "Genres"),
+  
+  ggplot(avg_rating_per_year, aes(x = avg_rating)) +
+    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
+    scale_color_brewer(palette="Accent") + 
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
+    labs(x = "Rating", y = "Year"),
+
+  ggplot(avg_rating_per_t_month_year, aes(x = avg_rating)) +
+    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
+    scale_color_brewer(palette="Accent") + 
+    theme_minimal() + theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
+    labs(x = "Rating", y = "T Month Year"),
+  
+  ncol = 2, align = 'hv', rel_heights = c(2, 2, 2))
+
+# Calculate rating percentages for the edx dataset
+edx_movies_summarized <- edx_movies %>%
+  group_by(rating = floor(rating)) %>%
+  summarize(percentage = n() / nrow(edx_movies) * 100)
+
+# Comparison with rating distribution :
+plot_grid(
+  ggplot() +
+    geom_histogram(data = avg_rating_per_user, aes(x = avg_rating, y = after_stat(count) / sum(after_stat(count)) * 100), 
+                   color = "darkred", fill = "darkred", alpha = 0.1, position = "dodge", bins = 10) +
+    geom_line(data = edx_movies_summarized, aes(x = rating, y = percentage), color = "darkred", size = 1, linetype = "dashed") +
+    scale_color_brewer(palette = "Accent") + 
+    theme_minimal() + 
+    theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
+    labs(x = "Rating", y = "User") +
+    scale_y_continuous(labels = percent_format(scale = 1)) +
+    scale_x_continuous(breaks = seq(1, 5, 1)),
+  
+  ggplot() +
+    geom_histogram(data = avg_rating_per_movie, aes(x = avg_rating, y = after_stat(count) / sum(after_stat(count)) * 100), 
+                   color = "darkred", fill = "darkred", alpha = 0.1, position = "dodge", bins = 10) +
+    geom_line(data = edx_movies_summarized, aes(x = rating, y = percentage), color = "darkred", size = 1, linetype = "dashed") +
+    scale_color_brewer(palette = "Accent") + 
+    theme_minimal() + 
+    theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
+    labs(x = "Rating", y = "Movie") +
+    scale_y_continuous(labels = percent_format(scale = 1)) +
+    scale_x_continuous(breaks = seq(1, 5, 1)),
+  
+  ggplot() +
+    geom_histogram(data = avg_rating_per_genres, aes(x = avg_rating, y = after_stat(count) / sum(after_stat(count)) * 100), 
+                   color = "darkred", fill = "darkred", alpha = 0.1, position = "dodge", bins = 10) +
+    geom_line(data = edx_movies_summarized, aes(x = rating, y = percentage), color = "darkred", size = 1, linetype = "dashed") +
+    scale_color_brewer(palette = "Accent") + 
+    theme_minimal() + 
+    theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
+    labs(x = "Rating", y = "Genres") +
+    scale_y_continuous(labels = percent_format(scale = 1)) +
+    scale_x_continuous(breaks = seq(1, 5, 1)),
+  
+  ggplot() +
+    geom_histogram(data = avg_rating_per_t_month_year, aes(x = avg_rating, y = after_stat(count) / sum(after_stat(count)) * 100), 
+                   color = "darkred", fill = "darkred", alpha = 0.1, position = "dodge", bins = 10) +
+    geom_line(data = edx_movies_summarized, aes(x = rating, y = percentage), color = "darkred", size = 1, linetype = "dashed") +
+    scale_color_brewer(palette = "Accent") + 
+    theme_minimal() + 
+    theme(legend.position = "top", legend.justification = c(0.5, 0), text = element_text(size = 9)) +
+    labs(x = "Rating", y = "T Month Year") +
+    scale_y_continuous(labels = percent_format(scale = 1)) +
+    scale_x_continuous(breaks = seq(1, 5, 1)),
+  
+  ncol = 2, align = 'hv', rel_heights = c(2, 2, 2))
+
+# Distribution of Average rating per couple of variables :
+
+# Example of a multi-dimensional rating :
+#df <- edx_movies %>% sample_n(50)
+#scatterplot3d::scatterplot3d(df$userId, df$t_year, df$rating, color = df$movieId, pch = 16,
+#                             grid = TRUE, box = FALSE, xlab = "User ID", 
+#                             ylab = "Year", zlab = "Rating", zlim = c(0, 5))
+
+# We select the user who gave the most number of ratings :
+df <- edx_movies %>% filter(userId %in% 59269)
+
+# Define the values
+x <- df$movieId
+y <- df$year
+z <- df$rating
+
+# Interpolate to get a grid of values
+interp_data <- with(edx_movies, interp(x, y, z, linear = TRUE))
+
+# Plot the interpolated surface
+persp(interp_data$x, interp_data$y, interp_data$z, main = "Ratings", 
+      xlab = "Movie ID", ylab = "Year", zlab = "Rating",
+      theta = 30, phi = 30, expand = 0.5, col = "lightblue", 
+      shade = 0.5)
+
+# Remove the variable df (unused) :
+rm(df)
+
+# List of variable combinations
+group_vars <- list(
+  c("movieId", "t_year"),
+  c("userId", "t_year"),
+  c("t_year", "genres"),
+  c("movieId", "year"),
+  c("movieId", "genres"),
+  c("year", "genres"),
+  c("t_year", "year"),
+  c("movieId", "t_year", "year"),
+  c("movieId", "t_year", "genres"),
+  c("t_year", "year", "genres"),
+  c("movieId", "year", "genres")
+)
+
+# Initialize a list to store plots
+plot_list <- list()
+
+# Iterate over each group of variables
+for (vars in group_vars) {
+  # Create a dynamic variable name using `paste`
+  var_str <- paste(vars, collapse = ", ")
+  
+  # Group by dynamic variables and create the plot
+  p <- edx_movies %>%
+    group_by(across(all_of(vars))) %>%
+    summarise(avg_rating = mean(rating, na.rm = TRUE), .groups = 'drop') %>%
+    ggplot(aes(x = avg_rating)) +
+    geom_histogram(aes(x = avg_rating, y = after_stat(count) / sum(after_stat(count)) * 100),
+                   color = "darkred", fill = "darkred", alpha = 0.1, position = "dodge", bins = 10) +
+    geom_line(data = edx_movies_summarized, aes(x = rating, y = percentage), color = "darkred", size = 1, linetype = "dashed") +
+    scale_color_brewer(palette = "Accent") + 
+    theme_minimal() + 
+    theme(legend.position = "top", 
+          legend.justification = c(0.5, 0), 
+          text = element_text(size = 9),
+          plot.title = element_text(size = 10)) +
+    labs(x = "Rating", y = "Percent") +
+    ggtitle(var_str)
+
+  plot_list[[length(plot_list) + 1]] <- p  # Store each plot in the list
+}
+
+# Display all plots in a grid layout (3 plots per row)
+plot_grid(plotlist = plot_list, ncol = 3)
+
 #####################################################
 ###             Predictions                       ###
 #####################################################
@@ -464,6 +829,25 @@ RMSE <- function(ratings, predictions) {
 # Results table, add a target of 0.86490
 results <- tibble(Type = character(), RMSE = numeric())
 results <- results %>% add_row(Type = "Target", RMSE = 0.86490)
+
+# Before starting, we need to check if a linear regression is possible with this large dataset (edx_movies).
+# With movieId and userId, the RMSE is 1.060306 :
+linear_model <- lm(rating ~ movieId + userId, data = edx_movies)
+predictions <- predict(linear_model, newdata = edx_movies)
+RMSE(edx_movies$rating, predictions)
+
+# Adding a third variable will result in a memory error :
+# Error: cannot allocate vector of size 53.6 Gb
+# linear_model <- lm(rating ~ userId + movieId + genres, data = edx_movies)
+
+# Random Forest model will also result in a memory error :
+# Error: cannot allocate vector of size 33.5 Gb
+# library(randomForest)
+# rf_model <- randomForest(rating ~ movieId + userId, data = edx_movies)
+# predictions <- predict(rf_model, newdata = edx_movies)
+
+# Remove linear_model and predictions :
+rm(linear_model, predictions)
 
 # Try 1 : we predict the average value
 
@@ -492,34 +876,35 @@ plot_grid(
   ncol = 2, align = 'hv', rel_heights = c(2, 2))
 
 # Try 2 : we predict a random value with same average as mu
-edx_movies$pred <- rnorm(n, mean = mu, sd = sd)
-head(edx_movies)
-ggplot(edx_movies, aes(x = rating - pred)) +
-  geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-  scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
-  scale_color_brewer(palette="Accent") + 
-  theme_minimal() + theme(legend.position = "top") +
-  labs(x = "Error (average)", y = "Number of Ratings")
+# May not be the best idea
+#edx_movies$pred <- rnorm(n, mean = mu, sd = sd)
+#head(edx_movies)
+#ggplot(edx_movies, aes(x = rating - pred)) +
+#  geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
+#  scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
+#  scale_color_brewer(palette="Accent") + 
+#  theme_minimal() + theme(legend.position = "top") +
+#  labs(x = "Error (average)", y = "Number of Ratings")
 
 # RMSE for random values : 1.499818
 # We don't save it in the results table as it is above the baseline value.
-RMSE(edx_movies$rating, edx_movies$pred)
+#RMSE(edx_movies$rating, edx_movies$pred)
 
 # We could reduce further the RMSE by replacing negative predictions with 0,
 # and the ones above 5 by 5, but it won't change much :
 # the result will still be above the baseline RMSE : 1.449352
-edx_movies <- edx_movies %>%
-  mutate(pred = case_when(
-    pred < 0 ~ 0,
-    pred > 5 ~ 5,
-    TRUE ~ pred
-  ))
-RMSE(edx_movies$rating, edx_movies$pred)
+#edx_movies <- edx_movies %>%
+#  mutate(pred = case_when(
+#    pred < 0 ~ 0,
+#    pred > 5 ~ 5,
+#    TRUE ~ pred
+#  ))
+#RMSE(edx_movies$rating, edx_movies$pred)
 
 # We remove the random pred from the data frame
-edx_movies <- edx_movies %>% select(-pred)
+#edx_movies <- edx_movies %>% select(-pred)
 
-# Try 3 : we introduce a bias for movies, users, genres, t_year and year
+# Try 3 : we introduce a bias for movies, users and genres.
 # Note that these biases are independent for each other
 
 # Explanation of the bias :
@@ -560,9 +945,8 @@ plot_bias +
                linetype = "solid", size = 2) +
   geom_hline(yintercept = mu, color = "orange", linetype = "dashed", size = 1)
 
-# TODO remove following lines :
 # Remove unused variables
-# rm(selected_movies, selected_ratings)
+rm(selected_movies, selected_ratings)
 
 # Movie bias
 b_m <- edx_movies %>%
@@ -589,31 +973,31 @@ edx_movies <- edx_movies %>% left_join(b_g, by = "genres")
 head(edx_movies)
 
 # Year (timestamp) bias
-b_ty <- edx_movies %>%
-  group_by(t_year) %>%
-  summarise(b_ty = mean(rating - mu))
-head(b_ty)
-edx_movies <- edx_movies %>% left_join(b_ty, by = "t_year")
-head(edx_movies)
+#b_ty <- edx_movies %>%
+#  group_by(t_year) %>%
+#  summarise(b_ty = mean(rating - mu))
+#head(b_ty)
+#edx_movies <- edx_movies %>% left_join(b_ty, by = "t_year")
+#head(edx_movies)
 
 # Year (release) bias
-b_y <- edx_movies %>%
-  group_by(year) %>%
-  summarise(b_y = mean(rating - mu))
-head(b_y)
-edx_movies <- edx_movies %>% left_join(b_y, by = "year")
-head(edx_movies)
+#b_y <- edx_movies %>%
+#  group_by(year) %>%
+#  summarise(b_y = mean(rating - mu))
+#head(b_y)
+#edx_movies <- edx_movies %>% left_join(b_y, by = "year")
+#head(edx_movies)
 
 # Add the movie and user RMSE values to the results table :
 results <- results %>% add_row(Type = "Movie", RMSE = RMSE(edx$rating, mu + edx_movies$b_m))
 results <- results %>% add_row(Type = "User", RMSE = RMSE(edx$rating, mu + edx_movies$b_u))
 results <- results %>% add_row(Type = "Genres", RMSE = RMSE(edx$rating, mu + edx_movies$b_g))
-results <- results %>% add_row(Type = "Year (timestamp)", RMSE = RMSE(edx$rating, mu + edx_movies$b_ty))
-results <- results %>% add_row(Type = "Year (release)", RMSE = RMSE(edx$rating, mu + edx_movies$b_y))
+#results <- results %>% add_row(Type = "Year (timestamp)", RMSE = RMSE(edx$rating, mu + edx_movies$b_ty))
+#results <- results %>% add_row(Type = "Year (release)", RMSE = RMSE(edx$rating, mu + edx_movies$b_y))
 
 # Display the RMSEs :
 results %>%
-  filter(Type %in% c("Target", "Average", "Movie", "User", "Genres", "Year (timestamp)", "Year (release)"))
+  filter(Type %in% c("Target", "Average", "Movie", "User", "Genres"))
 
 # Distribution of the error for the bias :
 plot_grid(
@@ -637,14 +1021,7 @@ plot_grid(
     scale_color_brewer(palette="Accent") + 
     theme_minimal() + theme(legend.position = "top") +
     labs(x = "Error", y = "Genres"),
-  
-  ggplot(edx_movies, aes(x = rating - mu - b_ty)) +
-    geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
-    scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
-    scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top") +
-    labs(x = "Error", y = "Year (timestamp)"),
-  
+
   ncol = 2, align = 'hv', rel_heights = c(2, 2, 2))
 
 # Random predictions for the movie bias :
@@ -661,6 +1038,7 @@ edx_movies %>%
 RMSE(edx$rating, mu + edx_movies$b_m + edx_movies$b_u)
 
 # User bias applied after movie bias
+# RMSE is now lower : 0.8567039
 b_mu <- edx_movies %>%
   group_by(userId) %>%
   summarise(b_mu = mean(rating - mu - b_m))
@@ -670,47 +1048,35 @@ head(edx_movies)
 
 results <- results %>% add_row(Type = "Movie + User", RMSE = RMSE(edx_movies$rating, mu + edx_movies$b_m + edx_movies$b_mu))
 
-# We have now a prediction method that gives an RMSE below the target value.
-# We can try to go further..
-
-# Bias : Movie + User + Genres
+# Genres bias applied after Movie + User bias
+# RMSE is now a litle bit lower : 0.8563595
 b_mug <- edx_movies %>%
   group_by(genres) %>%
   summarise(b_mug = mean(rating - mu - b_m - b_mu))
+head(b_mug)
 edx_movies <- edx_movies %>% left_join(b_mug, by = "genres")
-RMSE(edx_movies$rating, mu + edx_movies$b_m + edx_movies$b_mu + edx_movies$b_mug)
+head(edx_movies)
 
-# Bias : Movie + User + Genres + Year (timestamp)
-b_mugty <- edx_movies %>%
-  group_by(t_year) %>%
-  summarise(b_mugty = mean(rating - mu - b_m - b_mu - b_mug))
-edx_movies <- edx_movies %>% left_join(b_mugty, by = "t_year")
-RMSE(edx_movies$rating, mu + edx_movies$b_m + edx_movies$b_mu + edx_movies$b_mug + edx_movies$b_mugty)
-
-# Bias : Movie + User + Genres + Year (timestamp) + Year (release)
-b_mugtyy <- edx_movies %>%
-  group_by(year) %>%
-  summarise(b_mugtyy = mean(rating - mu - b_m - b_mu - b_mug - b_mugty))
-edx_movies <- edx_movies %>% left_join(b_mugtyy, by = "year")
-RMSE(edx_movies$rating, mu + edx_movies$b_m + edx_movies$b_mu + edx_movies$b_mug + edx_movies$b_mugty + edx_movies$b_mugtyy)
-
-# There is not much difference with Movie + User.
-results <- results %>% add_row(Type = "All", RMSE = RMSE(edx_movies$rating, mu + edx_movies$b_m + edx_movies$b_mu + edx_movies$b_mug + edx_movies$b_mugty + edx_movies$b_mugtyy))
+results <- results %>% add_row(Type = "Movie + User + Genres",
+                               RMSE = RMSE(edx_movies$rating, mu + edx_movies$b_m + edx_movies$b_mu + edx_movies$b_mug))
 
 # Display the updated RMSEs :
 results %>%
-  filter(Type %in% c("Target", "Average", "Movie", "Movie + User", "All"))
+  filter(Type %in% c("Target", "Average", "Movie", "Movie + User", "Movie + User + Genres"))
 
 # Comparison of the Distribution of errors :
-ggplot(
-  bind_rows(edx_movies %>% mutate(err = rating - mu - b_m, Type = "Movie") %>% select(rating, err, Type),
-            edx_movies %>% mutate(err = rating - mu - b_m - b_mu, Type = "Movie+User") %>% select(rating, err, Type)),
-  aes(x = err, fill = Type)) +
-  geom_histogram(position = "identity", alpha = 0.8, bins = 30) +
-  scale_color_brewer(palette="Accent") + 
-  labs(x = "Rating", y = "Count") +
-  theme_minimal() + theme(legend.position = "top") +
-  scale_fill_manual(values = c("Movie" = "darkred", "Movie+User" = "grey"))
+bind_rows(
+  edx_movies %>% mutate(err = rating - mu - b_m, Type = "Movie") %>% select(rating, err, Type),
+  edx_movies %>% mutate(err = rating - mu - b_m - b_mu, Type = "Movie+User") %>% select(rating, err, Type)
+) %>%
+  group_by(Type) %>%
+  do(data.frame(density = density(.$err)$y, err = density(.$err)$x)) %>%
+  ggplot(aes(x = err, y = density, color = Type)) +
+  geom_line(size = 1) +  # Use geom_line for lines instead of areas
+  scale_color_manual(values = c("Movie" = "darkred", "Movie+User" = "grey")) +
+  labs(x = "Error", y = "Density") +
+  theme_minimal() + 
+  theme(legend.position = "top")
 
 # Random predictions for the movie bias, compared with the Movie+User bias :
 edx_movies %>%
@@ -752,63 +1118,56 @@ results <- results %>% add_row(Type = "Regularisation (Movie + User)", RMSE = rm
 
 # Display the updated RMSEs :
 results %>%
-  filter(Type %in% c("Target", "Average", "Movie", "Movie + User", "All", "Regularisation (Movie + User)"))
+  filter(Type %in% c("Target", "Average", "Movie", "Movie + User", "Regularisation (Movie + User)"))
 
 # Try 6 : we introduce an interaction between 2 variables
 # after adding a bias for the movies (b_m).
 
-# Example of a multi-dimensional rating :
-df <- edx_movies %>% sample_n(50)
-scatterplot3d::scatterplot3d(df$userId, df$t_year, df$rating, color = df$movieId, pch = 16,
-                             grid = TRUE, box = FALSE, xlab = "User ID", 
-                             ylab = "Year", zlab = "Rating", zlim = c(0, 5))
-
-# Before continuing, we need to see which combination can be
-# used for this exercise :
-# obviously the couple movieId, userId will give the best outcome (RMSE = 0)
-# but it won't help when used on the final_holdout_test dataset.
-# Let's count the number of rows only in final_holdout_test for each couple :
-final_holdout_test_movies <- final_holdout_test %>%
-  mutate(
-    # Convert timestamp to POSIXct (assuming it's in seconds)
-    datetime = as.POSIXct(timestamp, origin = "1970-01-01", tz = "UTC"),
-    t_year = year(datetime),                         # Year
-    year = as.integer(str_extract(title, "(?<=\\()\\d{4}(?=\\))")),  # Removes parentheses from the year
-    title_without_year = str_remove(title, "\\s*\\(\\d{4}\\)")  # Removes year with parentheses
-  ) %>%
-  select(userId, movieId, rating, t_year, title = title_without_year, year, genres)
-
-# Function to get number of rows in the final dataset for each combination :
-get_nb_unique_rows <- function(combination) {
-  unique_combinations <- anti_join(final_holdout_test_movies, edx_movies, by = combination)
-  # Return a data frame or tibble for the output
-  return(tibble(
-    Combination = paste(combination, collapse = ", "),
-    `Nb Rows` = nrow(unique_combinations)
-  ))
-}
-
-# All variables to be used :
-variables <- c("userId", "movieId", "t_year", "title", "year", "genres")
-
-# Generate combinations of size 2
-combinations <- combn(variables, 2, simplify = FALSE)
-
-# Apply the function to each combination and combine results into a tibble
-unique_rows <- bind_rows(lapply(combinations, get_nb_unique_rows)) %>%
-  arrange(desc(`Nb Rows`))
-unique_rows
-
-# Generate combinations of size 3
-combinations_3d <- combn(variables, 3, simplify = FALSE)
-
-# Apply the function to each combination and combine results into a tibble
-unique_rows_3d <- bind_rows(lapply(combinations_3d, get_nb_unique_rows)) %>%
-  arrange(desc(`Nb Rows`))
-unique_rows_3d
-
 # We will apply a regularization with the value of lambda found earlier :
 lambda <- 0.5
+
+# Variable v : movieId, t_year
+b_v <- edx_movies %>%
+  group_by(movieId, t_year) %>%
+  summarise(b_v = mean(rating - mu))
+edx_movies <- edx_movies %>%
+  left_join(b_v, by = c("movieId", "t_year")) %>%
+  mutate(b_v = replace_na(b_v, 0))
+
+# Variable w : userId, t_year
+b_w <- edx_movies %>%
+  group_by(userId, t_year) %>%
+  summarise(b_w = mean(rating - mu))
+edx_movies <- edx_movies %>%
+  left_join(b_w, by = c("userId", "t_year")) %>%
+  mutate(b_w = replace_na(b_w, 0))
+
+# Variable x : movieId, t_year, genres
+b_x <- edx_movies %>%
+  group_by(movieId, t_year, genres) %>%
+  summarise(b_x = mean(rating - mu))
+edx_movies <- edx_movies %>%
+  left_join(b_x, by = c("movieId", "t_year", "genres")) %>%
+  mutate(b_x = replace_na(b_x, 0))
+
+# Display the updated RMSEs :
+results <- results %>% add_row(Type = "movieId, t_year", RMSE = RMSE(edx_movies$rating, mu + edx_movies$b_v))
+results <- results %>% add_row(Type = "userId, t_year", RMSE = RMSE(edx_movies$rating, mu + edx_movies$b_w))
+results <- results %>% add_row(Type = "movieId, t_year, genres", RMSE = RMSE(edx_movies$rating, mu + edx_movies$b_x))
+
+# Define the desired order for the filter
+desired_order <- c("Target", "Average", "Movie", "movieId, t_year", 
+                   "User", "userId, t_year", "Genres", "movieId, t_year, genres")
+# Filter and order the results
+results %>%
+  filter(Type %in% desired_order) %>%
+  mutate(Type = factor(Type, levels = desired_order)) %>%
+  arrange(Type)
+
+# We remove the b_v, b_w and b_x columns for next calculation :
+edx_movies <- edx_movies %>% select(-b_v, -b_w, -b_x)
+
+# And we calculate the biases on the 3 groups of variables :
 
 # Variable v : movieId, t_year
 b_v <- edx_movies %>%
@@ -826,19 +1185,28 @@ edx_movies <- edx_movies %>%
   left_join(b_w, by = c("userId", "t_year")) %>%
   mutate(b_w = replace_na(b_w, 0))
 
-# Variable x : t_year, year, title
+# Variable x : movieId, t_year, genres
 b_x <- edx_movies %>%
-  group_by(t_year, year, title) %>%
+  group_by(movieId, t_year, genres) %>%
   summarise(b_x = sum(rating - mu - b_v - b_w)/(n() + lambda))
 edx_movies <- edx_movies %>%
-  left_join(b_x, by = c("t_year", "year", "title")) %>%
+  left_join(b_x, by = c("movieId", "t_year", "genres")) %>%
   mutate(b_x = replace_na(b_x, 0))
 
-# Display the updated RMSEs :
+# Display the updated RMSEs : 0.8417134
 RMSE(edx_movies$rating, mu + edx_movies$b_v + edx_movies$b_w + edx_movies$b_x)
-results <- results %>% add_row(Type = "2D/3D Interaction", RMSE = RMSE(edx_movies$rating, mu + edx_movies$b_v + edx_movies$b_w + edx_movies$b_x))
+results <- results %>% add_row(Type = "2D/3D Interaction",
+                               RMSE = RMSE(edx_movies$rating, mu + edx_movies$b_v + edx_movies$b_w + edx_movies$b_x))
+
+# Define the desired order for the filter
+desired_order <- c("Target", "Average", "Movie",
+                   "Regularisation (Movie + User)", 
+                   "2D/3D Interaction")
+# Filter and order the results
 results %>%
-  filter(Type %in% c("Target", "Average", "Movie", "Movie + User", "All", "Regularisation (Movie + User)", "2D/3D Interaction"))
+  filter(Type %in% desired_order) %>%
+  mutate(Type = factor(Type, levels = desired_order)) %>%
+  arrange(Type)
 
 # Random predictions for the movie bias, compared with the Movie+User bias and the 2D/3D Interaction bias :
 edx_movies %>%
@@ -923,6 +1291,16 @@ results %>%
 ###             Final RMSE (test set)             ###
 #####################################################
 
+# Let's count the number of rows only in final_holdout_test for each couple :
+final_holdout_test_movies <- final_holdout_test %>%
+  mutate(
+    # Convert timestamp to POSIXct (assuming it's in seconds)
+    datetime = as.POSIXct(timestamp, origin = "1970-01-01", tz = "UTC"),
+    t_year = year(datetime),
+    year = as.integer(str_extract(title, "(?<=\\()\\d{4}(?=\\))"))
+  ) %>%
+  select(userId, movieId, rating, t_year, title, year, genres)
+
 final_holdout_test_movies <- final_holdout_test_movies %>%
   left_join(b_v, by = c("movieId", "t_year")) %>%
   mutate(b_v = replace_na(b_v, 0))
@@ -932,7 +1310,7 @@ final_holdout_test_movies <- final_holdout_test_movies %>%
   mutate(b_w = replace_na(b_w, 0))
 
 final_holdout_test_movies <- final_holdout_test_movies %>%
-  left_join(b_x, by = c("t_year", "year", "title")) %>%
+  left_join(b_x, by = c("movieId", "t_year", "genres")) %>%
   mutate(b_x = replace_na(b_x, 0))
 
 final_holdout_test_movies$pred <- pmin(pmax(mu +
@@ -946,4 +1324,191 @@ RMSE(final_holdout_test_movies$rating, final_holdout_test_movies$pred)
 ###             End                               ###
 #####################################################
 
-# stop("End of the code")
+stop("End of the code")
+
+linear_model <- lm(rating ~ movieId + year, data = edx_movies)
+predictions <- predict(linear_model, newdata = edx_movies)
+RMSE(edx_movies$rating, predictions)
+edx_movies <- edx_movies %>% mutate(pred = predictions)
+head(edx_movies)
+# average : 1.0603313
+# movieId + userId : 1.060306
+# movieId + t_year : 1.059641
+# movieId + year : 1.052292
+
+# We remove the b_v, b_w and b_x columns for next calculation :
+edx_movies <- edx_movies %>% select(-b_v, -b_w, -b_x)
+
+# And we calculate the biases on the 3 groups of variables :
+
+# Variable v : movieId, t_year
+b_v <- edx_movies %>%
+  group_by(movieId, t_year) %>%
+  summarise(b_v = sum(rating - pred)/(n() + lambda))
+edx_movies <- edx_movies %>%
+  left_join(b_v, by = c("movieId", "t_year")) %>%
+  mutate(b_v = replace_na(b_v, 0))
+
+# Variable w : userId, t_year
+b_w <- edx_movies %>%
+  group_by(userId, t_year) %>%
+  summarise(b_w = sum(rating - pred - b_v)/(n() + lambda))
+edx_movies <- edx_movies %>%
+  left_join(b_w, by = c("userId", "t_year")) %>%
+  mutate(b_w = replace_na(b_w, 0))
+
+# Variable x : movieId, t_year, genres
+b_x <- edx_movies %>%
+  group_by(movieId, t_year, genres) %>%
+  summarise(b_x = sum(rating - pred - b_v - b_w)/(n() + lambda))
+edx_movies <- edx_movies %>%
+  left_join(b_x, by = c("movieId", "t_year", "genres")) %>%
+  mutate(b_x = replace_na(b_x, 0))
+
+# Display the updated RMSEs : 0.8417134
+RMSE(edx_movies$rating, edx_movies$pred + edx_movies$b_v + edx_movies$b_w + edx_movies$b_x)
+
+
+
+head(final_holdout_test_movies)
+predictions <- predict(linear_model, newdata = final_holdout_test_movies)
+RMSE(final_holdout_test_movies$rating, predictions)
+final_holdout_test_movies <- final_holdout_test_movies %>% mutate(pred = predictions)
+
+final_holdout_test_movies$pred <- pmin(pmax(mu +
+                                              final_holdout_test_movies$b_v +
+                                              final_holdout_test_movies$b_w +
+                                              final_holdout_test_movies$b_x, 0.93), 4.64)
+
+
+
+
+
+
+
+
+
+
+
+install.packages("recommenderlab")
+library(recommenderlab)
+
+# Convert your data frame to a realRatingMatrix
+ratings_matrix <- as(as.data.frame(df), "realRatingMatrix")
+
+# Fit the SVD model
+svd_model <- Recommender(ratings_matrix, method = "SVD", parameter = list(k = 20, n.iter = 10))
+
+# Predict the ratings using the SVD model
+predictions <- predict(svd_model, ratings_matrix, type = "ratings")
+
+# Convert predictions to a data frame for comparison
+predictions_df <- as(predictions, "data.frame")
+
+# Actual ratings for RMSE calculation
+actual_ratings <- as(ratings_matrix, "matrix")
+
+# Calculate RMSE
+rmse <- sqrt(mean((predictions_df - actual_ratings) ^ 2, na.rm = TRUE))
+print(paste("RMSE:", round(rmse, 2)))
+
+
+
+
+
+edx_movies %>% group_by(genres) %>%
+  summarize(n = n(), avg = mean(rating), se = sd(rating)/sqrt(n())) %>%
+  filter(n >= 1000) %>% 
+  mutate(genres = reorder(genres, avg)) %>%
+  ggplot(aes(x = genres, y = avg, ymin = avg - 2*se, ymax = avg + 2*se)) + 
+  geom_point() +
+  geom_errorbar() + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+head(edx_movies)
+
+
+train_small <- edx_movies %>% 
+  group_by(movieId) %>%
+  filter(n() >= 50 | movieId == 3252) %>% ungroup() %>%
+  group_by(userId) %>%
+  filter(n() >= 50) %>% ungroup()
+head(train_small)
+y <- train_small %>% 
+  dplyr::select(userId, movieId, rating) %>%
+  pivot_wider(names_from = "movieId", values_from = "rating") %>%
+  as.matrix()
+
+rownames(y)<- y[,1]
+y <- y[,-1]
+y
+movie_titles <- edx_movies %>% 
+  dplyr::select(movieId, title) %>%
+  distinct()
+movie_titles
+colnames(y) <- with(movie_titles, title[match(colnames(y), movieId)]) 
+
+y <- sweep(y, 1, rowMeans(y, na.rm=TRUE))
+y <- sweep(y, 2, colMeans(y, na.rm=TRUE))
+
+
+
+
+head(edx_movies)
+r <- sweep(y - mu, 2, edx_movies$b_m) - edx_movies$b_u
+r
+colnames(r) <- with(movie_map, title[match(colnames(r), movieId)])
+
+
+y <- select(edx_movies, movieId, userId, rating) |>
+  pivot_wider(names_from = movieId, values_from = rating) 
+rnames <- y$userId
+y <- as.matrix(y[,-1])
+rownames(y) <- rnames
+
+
+
+train_small <- edx_movies %>% 
+  group_by(movieId) %>%
+  filter(n() >= 1000 | movieId == 3252) %>% ungroup() %>%
+  group_by(userId) %>%
+  filter(n() >= 1000) %>% ungroup()
+train_small <- train_small %>% select(-b_m, -b_u, -b_g, -b_ty, -b_y, -b_mu, -b_mug, -b_mugty, -b_mugtyy, -b_v, -b_w, -b_x, -pred, -pred_clamp)
+head(train_small)
+nrow(train_small)
+y <- select(train_small, movieId, userId, rating) |>
+  pivot_wider(names_from = movieId, values_from = rating) 
+rnames <- y$userId
+rownames(y) <- rnames
+y <- as.matrix(y[,-1])
+y
+y <- y[,-1]
+y
+movie_titles <- train_small %>% 
+  select(movieId, title) %>%
+  distinct()
+movie_titles
+
+colnames(y) <- with(movie_titles, title[match(colnames(y), movieId)]) 
+y1 <- y %>% select(1:10)
+y1
+rowMeans(y, na.rm=TRUE)
+z <- sweep(y1, 1, rowMeans(y1, na.rm=TRUE))
+z
+z <- sweep(z, 2, colMeans(z, na.rm=TRUE))
+z
+
+# Creating a vector
+x <- c(1:9)
+x
+# Calling as.matrix() Function
+as.matrix(x)
+
+
+
+
+
+df <- edx_movies %>% 
+  filter(t_year == 1995)
+nrow(df)
