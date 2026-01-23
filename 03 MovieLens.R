@@ -137,6 +137,47 @@ print(correlation_matrix)
 # obviously the couple movieId, userId will give the best outcome (RMSE = 0)
 # but it won't help when used on the final_holdout_test dataset.
 
+# Example of a multi-dimensional rating :
+#df <- edx_movies %>% sample_n(50)
+#scatterplot3d::scatterplot3d(df$userId, df$t_year, df$rating, color = df$movieId, pch = 16,
+#                             grid = TRUE, box = FALSE, xlab = "User ID", 
+#                             ylab = "Year", zlab = "Rating", zlim = c(0, 5))
+
+# Step 1: Extract 1,000 distinct userIds
+distinct_userIds <- edx_movies %>%
+  distinct(userId) %>%
+  sample_n(1000)
+
+# Step 2: Extract 1,000 distinct movieIds
+distinct_movieIds <- edx_movies %>%
+  distinct(movieId) %>%
+  sample_n(1000)
+
+# Step 3: Filter edx_movies for the extracted userIds and movieIds
+df <- edx_movies %>%
+  filter(userId %in% distinct_userIds$userId, 
+         movieId %in% distinct_movieIds$movieId) %>%
+  select(userId, movieId, rating)
+
+# View the filtered data (optional)
+head(df)
+
+# Define the values
+x <- df$movieId
+y <- df$userId
+z <- df$rating
+
+# Interpolate to get a grid of values
+interp_data <- with(edx_movies, interp(x, y, z, linear = TRUE))
+
+# Plot the interpolated surface
+persp(interp_data$x, interp_data$y, interp_data$z, main = "Ratings", 
+      xlab = "Movie ID", ylab = "User ID", zlab = "Rating",
+      theta = 30, phi = 30, expand = 0.5, col = "lightblue",shade = 0.5,
+      cex.main = 0.8, cex.lab = 0.8, cex.axis = 0.8)
+
+rm(distinct_userIds, distinct_movieIds, df, x, y, z)
+
 # Let's split the train dataset in 2 and count the number of unique rows for each couple :
 # Calculate the number of rows in the dataset
 num_rows <- nrow(edx_movies)
@@ -745,32 +786,6 @@ plot_grid(
 
 # Distribution of Average rating per couple of variables :
 
-# Example of a multi-dimensional rating :
-#df <- edx_movies %>% sample_n(50)
-#scatterplot3d::scatterplot3d(df$userId, df$t_year, df$rating, color = df$movieId, pch = 16,
-#                             grid = TRUE, box = FALSE, xlab = "User ID", 
-#                             ylab = "Year", zlab = "Rating", zlim = c(0, 5))
-
-# We select the user who gave the most number of ratings :
-df <- edx_movies %>% filter(userId %in% 59269)
-
-# Define the values
-x <- df$movieId
-y <- df$year
-z <- df$rating
-
-# Interpolate to get a grid of values
-interp_data <- with(edx_movies, interp(x, y, z, linear = TRUE))
-
-# Plot the interpolated surface
-persp(interp_data$x, interp_data$y, interp_data$z, main = "Ratings", 
-      xlab = "Movie ID", ylab = "Year", zlab = "Rating",
-      theta = 30, phi = 30, expand = 0.5, col = "lightblue", 
-      shade = 0.5)
-
-# Remove the variable df (unused) :
-rm(df)
-
 # List of variable combinations
 group_vars <- list(
   c("movieId", "t_year"),
@@ -924,13 +939,6 @@ selected_ratings <- edx_movies %>%
   mutate(index = row_number()) %>%
   select(index, movieId, rating, average_rating)
 
-# Create the base plot
-plot_bias <- ggplot(selected_ratings, aes(x = index, y = rating, color = as.factor(movieId))) +
-  geom_point(size = 1) +
-  labs(x = "Index", y = "Rating") +
-  theme_minimal() +
-  theme(legend.position = "none")
-
 # Create a data frame for the segments
 lines_data <- selected_ratings %>%
   group_by(movieId) %>%
@@ -938,15 +946,20 @@ lines_data <- selected_ratings %>%
             x_start = min(index),
             x_end = max(index))
 
-# Add horizontal lines for the average rating, constrained to the respective index range
-plot_bias + 
+# Create the base plot and add horizontal lines for the average rating,
+# constrained to the respective index range
+ggplot(selected_ratings, aes(x = index, y = rating, color = as.factor(movieId))) +
+  geom_point(size = 1) +
+  labs(x = "Index", y = "Rating") +
+  theme_minimal() +
+  theme(text = element_text(size = 9), legend.position = "none") +
   geom_segment(data = lines_data, 
                aes(x = x_start, xend = x_end, y = avg_rating, yend = avg_rating, color = as.factor(movieId)),
                linetype = "solid", size = 2) +
   geom_hline(yintercept = mu, color = "orange", linetype = "dashed", size = 1)
 
 # Remove unused variables
-rm(selected_movies, selected_ratings)
+rm(selected_movies)
 
 # Movie bias
 b_m <- edx_movies %>%
@@ -1195,13 +1208,13 @@ edx_movies <- edx_movies %>%
 
 # Display the updated RMSEs : 0.8417134
 RMSE(edx_movies$rating, mu + edx_movies$b_v + edx_movies$b_w + edx_movies$b_x)
-results <- results %>% add_row(Type = "2D/3D Interaction",
+results <- results %>% add_row(Type = "Interaction",
                                RMSE = RMSE(edx_movies$rating, mu + edx_movies$b_v + edx_movies$b_w + edx_movies$b_x))
 
 # Define the desired order for the filter
 desired_order <- c("Target", "Average", "Movie",
                    "Regularisation (Movie + User)", 
-                   "2D/3D Interaction")
+                   "Interaction")
 # Filter and order the results
 results %>%
   filter(Type %in% desired_order) %>%
@@ -1279,13 +1292,13 @@ edx_movies$pred_clamp <- pmin(pmax(edx_movies$pred, 0.93), 4.64)
 RMSE(edx_movies$rating, edx_movies$pred_clamp)
 
 # Save the RMSE in the results table :
-results <- results %>% add_row(Type = "2D/3D Interaction + Clamping", RMSE = RMSE(edx_movies$rating, edx_movies$pred_clamp))
+results <- results %>% add_row(Type = "Interaction + Clamping", RMSE = RMSE(edx_movies$rating, edx_movies$pred_clamp))
 
 # Display the updated RMSEs :
 results %>%
   filter(Type %in% c("Target", "Average", "Movie", "Movie + User", "All",
-                     "Regularisation (Movie + User)", "2D/3D Interaction",
-                     "2D/3D Interaction + Clamping"))
+                     "Regularisation (Movie + User)", "Interaction",
+                     "Interaction + Clamping"))
 
 #####################################################
 ###             Final RMSE (test set)             ###
@@ -1324,191 +1337,3 @@ RMSE(final_holdout_test_movies$rating, final_holdout_test_movies$pred)
 ###             End                               ###
 #####################################################
 
-stop("End of the code")
-
-linear_model <- lm(rating ~ movieId + year, data = edx_movies)
-predictions <- predict(linear_model, newdata = edx_movies)
-RMSE(edx_movies$rating, predictions)
-edx_movies <- edx_movies %>% mutate(pred = predictions)
-head(edx_movies)
-# average : 1.0603313
-# movieId + userId : 1.060306
-# movieId + t_year : 1.059641
-# movieId + year : 1.052292
-
-# We remove the b_v, b_w and b_x columns for next calculation :
-edx_movies <- edx_movies %>% select(-b_v, -b_w, -b_x)
-
-# And we calculate the biases on the 3 groups of variables :
-
-# Variable v : movieId, t_year
-b_v <- edx_movies %>%
-  group_by(movieId, t_year) %>%
-  summarise(b_v = sum(rating - pred)/(n() + lambda))
-edx_movies <- edx_movies %>%
-  left_join(b_v, by = c("movieId", "t_year")) %>%
-  mutate(b_v = replace_na(b_v, 0))
-
-# Variable w : userId, t_year
-b_w <- edx_movies %>%
-  group_by(userId, t_year) %>%
-  summarise(b_w = sum(rating - pred - b_v)/(n() + lambda))
-edx_movies <- edx_movies %>%
-  left_join(b_w, by = c("userId", "t_year")) %>%
-  mutate(b_w = replace_na(b_w, 0))
-
-# Variable x : movieId, t_year, genres
-b_x <- edx_movies %>%
-  group_by(movieId, t_year, genres) %>%
-  summarise(b_x = sum(rating - pred - b_v - b_w)/(n() + lambda))
-edx_movies <- edx_movies %>%
-  left_join(b_x, by = c("movieId", "t_year", "genres")) %>%
-  mutate(b_x = replace_na(b_x, 0))
-
-# Display the updated RMSEs : 0.8417134
-RMSE(edx_movies$rating, edx_movies$pred + edx_movies$b_v + edx_movies$b_w + edx_movies$b_x)
-
-
-
-head(final_holdout_test_movies)
-predictions <- predict(linear_model, newdata = final_holdout_test_movies)
-RMSE(final_holdout_test_movies$rating, predictions)
-final_holdout_test_movies <- final_holdout_test_movies %>% mutate(pred = predictions)
-
-final_holdout_test_movies$pred <- pmin(pmax(mu +
-                                              final_holdout_test_movies$b_v +
-                                              final_holdout_test_movies$b_w +
-                                              final_holdout_test_movies$b_x, 0.93), 4.64)
-
-
-
-
-
-
-
-
-
-
-
-install.packages("recommenderlab")
-library(recommenderlab)
-
-# Convert your data frame to a realRatingMatrix
-ratings_matrix <- as(as.data.frame(df), "realRatingMatrix")
-
-# Fit the SVD model
-svd_model <- Recommender(ratings_matrix, method = "SVD", parameter = list(k = 20, n.iter = 10))
-
-# Predict the ratings using the SVD model
-predictions <- predict(svd_model, ratings_matrix, type = "ratings")
-
-# Convert predictions to a data frame for comparison
-predictions_df <- as(predictions, "data.frame")
-
-# Actual ratings for RMSE calculation
-actual_ratings <- as(ratings_matrix, "matrix")
-
-# Calculate RMSE
-rmse <- sqrt(mean((predictions_df - actual_ratings) ^ 2, na.rm = TRUE))
-print(paste("RMSE:", round(rmse, 2)))
-
-
-
-
-
-edx_movies %>% group_by(genres) %>%
-  summarize(n = n(), avg = mean(rating), se = sd(rating)/sqrt(n())) %>%
-  filter(n >= 1000) %>% 
-  mutate(genres = reorder(genres, avg)) %>%
-  ggplot(aes(x = genres, y = avg, ymin = avg - 2*se, ymax = avg + 2*se)) + 
-  geom_point() +
-  geom_errorbar() + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-
-head(edx_movies)
-
-
-train_small <- edx_movies %>% 
-  group_by(movieId) %>%
-  filter(n() >= 50 | movieId == 3252) %>% ungroup() %>%
-  group_by(userId) %>%
-  filter(n() >= 50) %>% ungroup()
-head(train_small)
-y <- train_small %>% 
-  dplyr::select(userId, movieId, rating) %>%
-  pivot_wider(names_from = "movieId", values_from = "rating") %>%
-  as.matrix()
-
-rownames(y)<- y[,1]
-y <- y[,-1]
-y
-movie_titles <- edx_movies %>% 
-  dplyr::select(movieId, title) %>%
-  distinct()
-movie_titles
-colnames(y) <- with(movie_titles, title[match(colnames(y), movieId)]) 
-
-y <- sweep(y, 1, rowMeans(y, na.rm=TRUE))
-y <- sweep(y, 2, colMeans(y, na.rm=TRUE))
-
-
-
-
-head(edx_movies)
-r <- sweep(y - mu, 2, edx_movies$b_m) - edx_movies$b_u
-r
-colnames(r) <- with(movie_map, title[match(colnames(r), movieId)])
-
-
-y <- select(edx_movies, movieId, userId, rating) |>
-  pivot_wider(names_from = movieId, values_from = rating) 
-rnames <- y$userId
-y <- as.matrix(y[,-1])
-rownames(y) <- rnames
-
-
-
-train_small <- edx_movies %>% 
-  group_by(movieId) %>%
-  filter(n() >= 1000 | movieId == 3252) %>% ungroup() %>%
-  group_by(userId) %>%
-  filter(n() >= 1000) %>% ungroup()
-train_small <- train_small %>% select(-b_m, -b_u, -b_g, -b_ty, -b_y, -b_mu, -b_mug, -b_mugty, -b_mugtyy, -b_v, -b_w, -b_x, -pred, -pred_clamp)
-head(train_small)
-nrow(train_small)
-y <- select(train_small, movieId, userId, rating) |>
-  pivot_wider(names_from = movieId, values_from = rating) 
-rnames <- y$userId
-rownames(y) <- rnames
-y <- as.matrix(y[,-1])
-y
-y <- y[,-1]
-y
-movie_titles <- train_small %>% 
-  select(movieId, title) %>%
-  distinct()
-movie_titles
-
-colnames(y) <- with(movie_titles, title[match(colnames(y), movieId)]) 
-y1 <- y %>% select(1:10)
-y1
-rowMeans(y, na.rm=TRUE)
-z <- sweep(y1, 1, rowMeans(y1, na.rm=TRUE))
-z
-z <- sweep(z, 2, colMeans(z, na.rm=TRUE))
-z
-
-# Creating a vector
-x <- c(1:9)
-x
-# Calling as.matrix() Function
-as.matrix(x)
-
-
-
-
-
-df <- edx_movies %>% 
-  filter(t_year == 1995)
-nrow(df)

@@ -1,17 +1,21 @@
 ---
-title: "Movie Rating Prediction"
+title: "Movie Rating Predictions"
 author: "Jean-Marie Roy"
-date: "2025-12-16"
+date: "2026-01-23"
 output:
   pdf_document:
     toc: false
     toc_depth: 2
+    extra_dependencies: ["float"]
   html_document:
     df_print: paged
+header-includes:
+  - \usepackage{xcolor}
+  - \usepackage[table]{xcolor}
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, fig.pos = "H", out.extra = "")
 ```
 
 ```{r, echo=FALSE}
@@ -33,7 +37,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=0.5\textwidth]{title-image.jpg}
+  \includegraphics[width=0.5\textwidth]{title-image.png}
   \label{fig:my_image}
 \end{figure}
 
@@ -56,11 +60,13 @@ During the PH125.8x: Data Science: Machine Learning course, the dataset used was
 
 The history and context of this dataset are available here :
 
-\fbox{%
-  \begin{minipage}{0.95\textwidth}
+\begin{center}
+\colorbox{gray!10}{
+  \begin{minipage}{0.90\textwidth}
     F. Maxwell Harper and Joseph A. Konstan. 2015. The MovieLens Datasets: History and Context. ACM Transactions on Interactive Intelligent Systems (TiiS) 5, 4, Article 19 (December 2015), 19 pages. DOI=http://dx.doi.org/10.1145/2827872
-  \end{minipage}%
+  \end{minipage}
 }
+\end{center}
 
 First we will setup the environment and download and generate the dataset, then we will analyse the data, and finally we will train a machine learning algorithm using the inputs in the first subset (edx) to predict the movie ratings in the validation set (final_holdout_test).
 
@@ -107,7 +113,8 @@ data_summary <- data.frame(Dataset = c("edx", "final_holdout_test"),
                            Movies = c(comma(n_distinct(edx$movieId)), comma(n_distinct(final_holdout_test$movieId))),
                            Users = c(comma(n_distinct(edx$userId)), comma(n_distinct(final_holdout_test$userId))),
                            Ratings = c(comma(nrow(edx)), comma(nrow(final_holdout_test))))
-kable(data_summary, align = 'l') %>% kable_styling(full_width = F)
+kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
 ```
 
 The analysis reveals that for the edx dataset, approximately 10,000 movies were rated by 70,000 users, resulting in a total of 9,000,000 ratings.
@@ -124,7 +131,8 @@ data_summary <- head(edx %>% select(userId, movieId,
                                     title, genres))
 # Replace '|' with ';' in the genres column
 data_summary$genres <- gsub("\\|", ";", data_summary$genres)
-kable(data_summary) %>% kable_styling(font_size = 9)
+kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
 ```
 
 The timestamp variable can be decomposed into various components, including the day of the week, day, month, year, and hour (minutes and seconds are likely unnecessary for our analysis).
@@ -142,14 +150,16 @@ data_summary <- head(edx_movies %>% select(userId, movieId,
                                            t_day, t_month,
                                            t_year, t_hour,
                                            title, year))
-kable(data_summary) %>% kable_styling(font_size = 9)
+kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
 ```
 
 The statistics for the modified table, focusing on the numerical variables (excluding userId and movieId, which are identifiers), are presented below :
 
 ```{r, echo=FALSE}
 data_summary <- summary(edx_movies %>% select(rating, t_day_of_week, t_day, t_month, t_year, t_hour, year))
-kable(data_summary) %>% kable_styling(font_size = 9)
+kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
 ```
 
 This allows us to focus on the other relevant attributes for analysis while keeping the genres information in the dataset.
@@ -170,7 +180,8 @@ data_summary <- edx_movies %>%
   summarise(across(everything(), ~ n_distinct(.))) %>%
   pivot_longer(cols = everything(), names_to = "Variable", values_to = "Distinct_Count") %>%
   arrange(desc(Distinct_Count))
-kable(data_summary, linesep = "", format.args = list(big.mark = ",")) %>% kable_styling()
+kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
 ```
 
 There are approximately 70,000 users who have rated 10,000 movies. Notably, the number of movies slightly exceeds the number of titles, likely because some films share the same title (possibly due to remakes released years later). While there are 20 genres (see section 2.3.6 for more details), nearly 800 combinations of these genres exist. The movies were released over a span of 94 years, and the timestamps for the ratings encompass all hours of the day, every day of the week, and every month of the year.
@@ -180,7 +191,9 @@ There are approximately 70,000 users who have rated 10,000 movies. Notably, the 
 The table below presents the matrix of correlations among the variables :
 
 ```{r, echo=FALSE}
-kable(correlation_matrix) %>% kable_styling(full_width = F, font_size = 8)
+kable(correlation_matrix, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position")) %>%
+  row_spec(seq(1, nrow(correlation_matrix), by = 2), background = "#f2f2f2")
 ```
 
 For better reading of the matrix, all values close to zero (ie between -0.1 and 0.1) have been removed or hidden in the matrix.
@@ -205,20 +218,29 @@ Research suggests that most Americans can be uniquely identified using just a co
 
 For our current dataset, we know that the pair (movieId, userId) functions as a reliable key since each user rates a specific movie only once.
 
+```{r, echo=FALSE, fig.align="center", fig.cap = "Rating per user and movie", fig.height=5}
+persp(interp_data$x, interp_data$y, interp_data$z, main = "Ratings", 
+      xlab = "Movie ID", ylab = "User ID", zlab = "Rating",
+      theta = 30, phi = 30, expand = 0.5, col = "lightblue",shade = 0.5,
+      cex.main = 0.8, cex.lab = 0.8, cex.axis = 0.8)
+```
+
+\newpage
+
 The table below shows the uniqueness of combinations : the edx dataset was split into 2 parts (90%-10%), and the figures represent the number of rows in the test_set (total 900,006 rows) not in the train_set :
 
 ```{r, echo=FALSE}
-kable(unique_rows_2d) %>% kable_styling(full_width = F)
+kable(unique_rows_2d, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
 ```
 
 We can observe that while the couple (userId, movieId) is unique, the couples (userId, genres) and (userId, year) represent a significant amount of observations, not enough to identify a unique observation, but still too high for the exercise.
 
-\newpage
-
 We can go further and calculate the number of unique rows for a combination of size 3 :
 
 ```{r, echo=FALSE}
-kable(unique_rows_3d) %>% kable_styling(full_width = F)
+kable(unique_rows_3d, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
 ```
 
 As we can see, the first 6 rows have a significant high number of unique rows. The first 3 rows are based on movieId and userId (with either year or t_year) and therefore are unique.
@@ -228,17 +250,15 @@ As we can see, the first 6 rows have a significant high number of unique rows. T
 
 For the upcoming analysis, we will only consider the following combinations :  
 
-      (movieId, t_year)  
-      (userId, t_year)  
-      (t_year, genres)  
-      (movieId, year)  
-      (movieId, genres)  
-      (year, genres)  
-      (t_year, year)  
-      (movieId, t_year, year)  
-      (movieId, t_year, genres)  
-      (t_year, year, genres)  
-      (movieId, year, genres)  
+\begin{table}[ht]
+\centering
+\begin{tabular}{lll}
+    (movieId, t\_year) & (userId, t\_year) & (t\_year, genres) \\
+    (movieId, year) & (movieId, genres) & (year, genres) \\
+    (t\_year, year) & (movieId, t\_year, year) & (movieId, t\_year, genres) \\
+    (t\_year, year, genres) & (movieId, year, genres) &  \\
+\end{tabular}
+\end{table}
 
 \newpage
 
@@ -249,12 +269,9 @@ The top five movies with the highest number of ratings each received 30,000 rati
 ```{r, echo=FALSE}
 # Top 5 movies with the highest number of ratings.
 # We need to reformat the year as character so it is not displayed with a comma (1,994)
-kable(
-  top_n(
-    list_movies %>% mutate(year = as.character(year)) %>% select(index, title, year, count),
-    5, count),
-  format.args = list(big.mark = ",")) %>%
-  kable_styling(full_width = F)
+data_summary <- top_n(list_movies %>% mutate(year = as.character(year)) %>% select(index, title, year, count), 5, count)
+kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
 ```
 
 #### Movie Ratings Visualization
@@ -263,7 +280,7 @@ The left figure illustrates that a small number of movies received the majority 
 
 To better highlight this trend, we can apply a log10 transformation to the y-axis. This transformation reveals that although most movies garnered at least 10 ratings, only half exceeded 100 ratings, as demonstrated in the right figure :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of ratings / Movie", fig.height=2}
+```{r, echo=FALSE, fig.align="center", fig.cap = "Number of ratings / Movie", fig.height=2}
 plot_grid(
   list_movies %>% sample_n(1000) %>% ggplot(aes(x = index, y = count)) +
     geom_area(color = "darkblue", fill="darkblue", alpha = 0.1) +
@@ -285,7 +302,7 @@ The figure on the left shows that the number of movies released per year increas
 
 Similarly, the figure on the right demonstrates that the number of ratings received per year for newly released movies also rose during this period. However, it appears that older movies received significantly fewer ratings compared to more recent releases :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of Movies Released per Year and Number of Ratings per Year", fig.height=2}
+```{r, echo=FALSE, fig.align="center", fig.cap = "Number of Movies Released per Year and Number of Ratings per Year", fig.height=2}
 plot_grid(
   list_movies %>%
     group_by(year) %>%
@@ -293,19 +310,19 @@ plot_grid(
     ggplot(aes(x = year, y = total_movies)) +
     geom_bar(stat = "identity", fill="darkblue", alpha = 0.8) +
     labs(x = "Year Movie Released", y = "Number of Movies") +
-    theme_minimal(),
+    theme_minimal() + theme(text = element_text(size = 9)),
   list_movies %>%
     ggplot(aes(x = year, y = count)) +
     geom_bar(stat = "identity", fill="darkblue", alpha = 0.8) +
     scale_y_continuous(labels = label_number(scale = 1e-3, suffix = "k")) +
     labs(x = "Year Movie Released", y = "Number of Ratings") +
-    theme_minimal(),
+    theme_minimal() + theme(text = element_text(size = 9)),
   ncol = 2)
 ```
 
 Further investigation reveals that older movies receive slightly fewer ratings (per movie) compared to more recent ones. Additionally, the number of ratings decreases significantly with the age of the movie, which is determined by the difference between the year of the rating and the year of the movie's release :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of Ratings per Movie per year of release and number of ratings per age of movie", fig.height=2}
+```{r, echo=FALSE, fig.align="center", fig.cap = "Number of Ratings per Movie per year of release and number of ratings per age of movie", fig.height=2}
 # Number of Ratings per Movie per year of release,
 # and number of ratings per age of movie (difference between the timestamp year and the year of release) :
 plot_grid(
@@ -317,7 +334,7 @@ plot_grid(
     ggplot(aes(x = year, y = ratio)) +
     geom_bar(stat = "identity", fill="darkblue", alpha = 0.8) +
     labs(x = "Year", y = "Nb Ratings per Movie") +
-    theme_minimal(),
+    theme_minimal() + theme(text = element_text(size = 9)),
   edx_movies %>%
     mutate(age = t_year - year) %>%
     group_by(age) %>%
@@ -328,7 +345,7 @@ plot_grid(
     geom_bar(stat = "identity", fill="darkblue", alpha = 0.8) +
     scale_y_continuous(labels = label_number(scale = 1e-3, suffix = "k")) +
     labs(x = "Movie Age", y = "Ratings") +
-    theme_minimal(),
+    theme_minimal() + theme(text = element_text(size = 9)),
   ncol = 2)
 ```
 
@@ -339,15 +356,16 @@ plot_grid(
 As previously mentioned, the edx dataset contains approximately 70,000 users. Below are the top five users with the highest number of ratings :
 
 ```{r, echo=FALSE}
-kable(top_n(list_users, 5, count), format.args = list(big.mark = ",")) %>%
-  kable_styling(full_width = F)
+data_summary <- top_n(list_users, 5, count)
+kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
 ```
 
 A small number of users account for a large proportion of ratings, as shown in the figure on the left, which illustrates that the majority of ratings come from a minority of users.
 
 By applying a log10 transformation to the y-axis, we can see that all users rated at least 10 movies, while only one-third rated more than 100 movies, as depicted in the figure on the right :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of ratings / User", fig.height=2}
+```{r, echo=FALSE, fig.align="center", fig.cap = "Number of ratings / User", fig.height=2}
 plot_grid(
   list_users %>% sample_n(1000) %>% ggplot(aes(x = index, y = count)) +
     geom_area(color = "darkgreen", fill="darkgreen", alpha = 0.1) +
@@ -370,7 +388,8 @@ The table below shows the first five observations of the dataset. As we can see,
 data_summary <- head(edx_movies %>% select(userId, rating, title, year, genres))
 # Replace '|' with ';' in the genres column
 data_summary$genres <- gsub("\\|", ";", data_summary$genres)
-kable(data_summary) %>% kable_styling(font_size = 9)
+kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
 ```
 
 From this dataset, we can extract all unique genres, resulting in the following list:
@@ -379,9 +398,11 @@ Action, Adventure, Animation, Children, Comedy, Crime, Documentary, Drama, Fanta
 
 While there are 20 distinct genres, there are 797 combinations of these genres present in the dataset.
 
+\newpage
+
 Next, we will plot the number of ratings per genre (separated):
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of ratings / Genre", fig.width=8, fig.height=4}
+```{r, echo=FALSE, fig.align="center", fig.cap = "Number of ratings / Genre", fig.width=8, fig.height=4}
 list_genres %>%
   arrange(desc(count)) %>%
   mutate(genres = factor(genres, levels = genres)) %>%
@@ -396,7 +417,7 @@ The bar chart suggests that various genres contribute differently to the total r
 
 Finally, we will plot the number of ratings per genre (combined) along with the cumulative percentage :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of ratings / Genre", fig.height=3}
+```{r, echo=FALSE, fig.align="center", fig.cap = "Number of ratings / Genre", fig.height=3}
 plot_grid(
   edx_movies %>%
     group_by(genres) %>%
@@ -445,7 +466,7 @@ The cumulative percentage plot suggests that a small number of genre IDs contrib
 
 The following plot shows the number of ratings per movie, per genre and per year :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of ratings per Genre and Year", fig.height=4}
+```{r, echo=FALSE, fig.align="center", fig.cap = "Number of ratings per Genre and Year", fig.height=4}
 edx_movies %>%
   group_by(year, movieId, genres) %>%
   summarize(
@@ -472,7 +493,7 @@ Other genres have seen their number of ratings per movie increase more recently,
 
 The following plot shows the number of ratings per genre over the years :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of ratings per Genre and Year", fig.height=4}
+```{r, echo=FALSE, fig.align="center", fig.cap = "Number of ratings per Genre and Year", fig.height=4}
 edx_movies %>%
   group_by(year, genres) %>%
   summarize(
@@ -504,7 +525,7 @@ We will now study the impact of the timestamp (data and time a rating was given)
 
 The following five plots show the number of ratings per date (timestamp), grouped by movie, user, genres or year of release for the last four ones :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of ratings per date (timestamp)", fig.height=5}
+```{r, echo=FALSE, fig.align="center", fig.cap = "Number of ratings per date (timestamp)", fig.height=5}
 plot_grid(
   edx_movies %>%
     group_by(t_year, t_month) %>%
@@ -567,19 +588,19 @@ This suggests that the timestamp may be a more effective variable for predicting
 
 Users assigned more full marks than half marks. The figures below illustrate that the distribution of ratings can be approximated as normal when rounded :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Number of ratings", fig.height=2}
+```{r, echo=FALSE, fig.align="center", fig.cap = "Number of ratings", fig.height=2}
 plot_grid(
   ggplot(edx_movies, aes(x = rating)) +
     geom_histogram(fill="darkred", alpha = 0.8, position="dodge", bins = 30) +
     scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
     scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top") +
+    theme_minimal() + theme(legend.position = "top", text = element_text(size = 9)) +
     labs(x = "Rating", y = "Count"),
   ggplot(edx_movies, aes(x = floor(rating))) +
     geom_histogram(fill="darkred", alpha = 0.8, position="dodge", bins = 30) +
     scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
     scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top") +
+    theme_minimal() + theme(legend.position = "top", text = element_text(size = 9)) +
     labs(x = "Rating (Rounded)", y = "Count"),
   ncol = 2)
 ```
@@ -589,7 +610,8 @@ The table below displays the average and standard deviation :
 ```{r, echo=FALSE}
 data_summary <- data.frame(Type = c("Average", "Standard Deviation"),
                            Value = c(mu, sd))
-kable(data_summary) %>% kable_styling(full_width = F)
+kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
 ```
 
 We will now investigate whether any variable has an impact on the ratings and, consequently, if it can assist in predicting ratings.
@@ -600,7 +622,7 @@ We will now investigate whether any variable has an impact on the ratings and, c
 
 We will start by analyzing variables with a low number of distinct values, specifically the timestamp information and the year of release. The aim is to determine whether there are specific times or days when users tend to give higher or lower ratings, or if the year of release influences the ratings :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Distribution of ratings per variable", fig.height=3}
+```{r, echo=FALSE, fig.align="center", fig.cap = "Distribution of ratings per variable", fig.height=3}
 plot_grid(
   ggplot(avg_rating_per_day_of_week, aes(x = t_day_of_week)) +
     geom_ribbon(aes(ymin = min_rating, ymax = max_rating), fill = "darkred", alpha = 0.2) +
@@ -669,7 +691,7 @@ Note that for both year (timestamp) and year of release, the variation was mainl
 
 We will now concentrate exclusively on the variables that have a sufficient number of distinct values: userId, movieId, title and year. We can also consider the combination timestamp month-year as it has more than 150 values. Our goal is to determine whether their distributions closely resemble that of the ratings. The figures below illustrate the distribution of ratings for these variables :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Distribution of ratings", fig.height=4}
+```{r, echo=FALSE, fig.align="center", fig.cap = "Distribution of ratings", fig.height=4}
 plot_grid(
   ggplot(avg_rating_per_user, aes(x = avg_rating)) +
     geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
@@ -714,7 +736,7 @@ The other four plots show approximately a normal distribution centered around 3.
 
 We can enhance our analysis by comparing the average rating for each variable (expressed as a percentage) with the distribution of ratings :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Distribution of ratings", fig.height=4}
+```{r, echo=FALSE, fig.align="center", fig.cap = "Distribution of ratings", fig.height=4}
 plot_grid(
   ggplot() +
     geom_histogram(data = avg_rating_per_user, aes(x = avg_rating, y = after_stat(count) / sum(after_stat(count)) * 100), 
@@ -768,16 +790,11 @@ We can see that the movie distribution plot is the closest to the rating one, fo
 
 #### 2.3.8.3 Distribution of Average Ratings per group of Variables  
 
-The goal is to utilize a couple of variables to calculate the bias. In this example, the rating is displayed based on the movieId and the year, specifically for the user who provided the highest number of ratings :
+As noted in Section 2.3.6, not only did the number of ratings rise significantly over the years (particularly during the 1980s) but this increase also varied by movie genre. For instance, genres like Drama experienced a substantial surge in ratings, while others, such as Documentary, saw a more modest increase. Interestingly, we also observed that the number of ratings per movie could decline, as was the case with the Animation genre.
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Rating per user, year (timestamp) and movie", fig.height=5}
-persp(interp_data$x, interp_data$y, interp_data$z, main = "Ratings", 
-      xlab = "Movie ID", ylab = "Year", zlab = "Rating",
-      theta = 30, phi = 30, expand = 0.5, col = "lightblue", 
-      shade = 0.5)
-```
+We will now analyze the use of multiple variables to determine whether the distribution of ratings per interaction resembles the overall distribution of ratings.
 
-A representation of a 3D graph can also be made in 2D by grouping variables altogether :
+We will group these variables together as follows :
 
 \small
 ```{r eval=FALSE}
@@ -788,7 +805,7 @@ avg_rating_per_movieId_year <- edx_movies %>%
 ```
 \normalsize
 
-or for a 4D graph : 
+or for 3 variables : 
 
 \small
 ```{r eval=FALSE}
@@ -799,11 +816,23 @@ avg_rating_per_movieId_year_genres <- edx_movies %>%
 ```
 \normalsize
 
+We will focus solely on the groups identified in Section 2.3.3, as they are the only ones with repeated values and are likely to appear in the test dataset :
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{lll}
+    (movieId, t\_year) & (userId, t\_year) & (t\_year, genres) \\
+    (movieId, year) & (movieId, genres) & (year, genres) \\
+    (t\_year, year) & (movieId, t\_year, year) & (movieId, t\_year, genres) \\
+    (t\_year, year, genres) & (movieId, year, genres) &  \\
+\end{tabular}
+\end{table}
+
 \newpage
 
 The following plots show the distribution of ratings per group of variables :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Comparison of the Distribution of ratings", fig.height=5}
+```{r, echo=FALSE, fig.align="center", fig.cap = "Comparison of the Distribution of ratings", fig.height=5}
 plot_grid(plotlist = plot_list, ncol = 3)
 ```
 
@@ -888,21 +917,21 @@ The error can be defined as :
 
 The following plots illustrate the distribution of ratings in descending order, with the average value represented by a horizontal orange line. The plot on the right depicts the distribution of errors :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Prediction (average)", fig.height=2}
+```{r, echo=FALSE, fig.align="center", fig.cap = "Prediction (average)", fig.height=2}
 plot_grid(
   edx_movies %>% select(rating) %>% sample_n(10000) %>% arrange(desc(rating)) %>%
   mutate(index = row_number()) %>%
   ggplot(aes(x = index, y = rating)) +
   geom_area(color = "darkred", fill="darkred", alpha = 0.1) +
   geom_hline(yintercept = mu, color = "orange", linetype = "dashed", size = 1) +
-  theme_minimal() +
+  theme_minimal() + theme(text = element_text(size = 9)) +
   labs(x = "Index", y = "Rating"),
   
   ggplot(edx_movies, aes(x = rating - mu)) +
   geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
   scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
   scale_color_brewer(palette="Accent") + 
-  theme_minimal() + theme(legend.position = "top") +
+  theme_minimal() + theme(text = element_text(size = 9), legend.position = "top") +
   labs(x = "Error", y = "Number of Ratings"),
   
   ncol = 2, align = 'hv', rel_heights = c(2, 2))
@@ -930,8 +959,12 @@ where :
 
 The figure below illustrates our objective. For each movie, we calculate the average rating. In this example, there are three movies, each represented by different colors, with individual points indicating their ratings. The line or segment displays the average rating for each specific movie. The orange line shows the global average :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Bias", fig.width=4, fig.height=3}
-plot_bias + 
+```{r, echo=FALSE, fig.align="center", fig.cap = "Bias", fig.width=4, fig.height=3}
+ggplot(selected_ratings, aes(x = index, y = rating, color = as.factor(movieId))) +
+  geom_point(size = 1) +
+  labs(x = "Index", y = "Rating") +
+  theme_minimal() +
+  theme(text = element_text(size = 9), legend.position = "none") +
   geom_segment(data = lines_data, 
                aes(x = x_start, xend = x_end, y = avg_rating, yend = avg_rating, color = as.factor(movieId)),
                linetype = "solid", size = 2) +
@@ -945,9 +978,10 @@ If the same movie appears in the test dataset, we will use its average rating. O
 The table below presents the RMSE values for different prediction types used in our analysis : average and bias for Movie, User, and Genres. This choice was due to the comparison of the distribution of average ratings between User, Movie, Genres and Year (timestamp) shown in section 2.3.8.2.
 
 ```{r, echo=FALSE}
-kable(results %>%
-  filter(Type %in% c("Target", "Average", "Movie", "User", "Genres"))) %>%
-  kable_styling(full_width = F)
+data_summary <- results %>%
+        filter(Type %in% c("Target", "Average", "Movie", "User", "Genres"))
+kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
 ```
 
 The table above shows that predictions based on movies produce the best results compared to the other features considered. Therefore, we will concentrate on using the movie variable for future work.
@@ -958,28 +992,28 @@ The following four plots illustrate the distribution of errors for the biases as
 
 This trend aligns with the RMSE results obtained earlier.
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Distribution of error (Bias)", fig.height=4}
+```{r, echo=FALSE, fig.align="center", fig.cap = "Distribution of error (Bias)", fig.height=4}
 # Distribution of the error for the bias :
 plot_grid(
   ggplot(edx_movies, aes(x = rating - mu - b_m)) +
     geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
     scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
     scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top") +
+    theme_minimal() + theme(text = element_text(size = 9), legend.position = "top") +
     labs(x = "Error", y = "Movie"),
   
   ggplot(edx_movies, aes(x = rating - mu - b_u)) +
     geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
     scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
     scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top") +
+    theme_minimal() + theme(text = element_text(size = 9), legend.position = "top") +
     labs(x = "Error", y = "User"),
   
   ggplot(edx_movies, aes(x = rating - mu - b_g)) +
     geom_histogram(color="darkred", fill="darkred", alpha = 0.1, position="dodge", bins = 30) +
     scale_y_continuous(labels = label_number(scale = 1e-6, suffix = "M")) +
     scale_color_brewer(palette="Accent") + 
-    theme_minimal() + theme(legend.position = "top") +
+    theme_minimal() + theme(text = element_text(size = 9), legend.position = "top") +
     labs(x = "Error", y = "Genres"),
 
   ncol = 2, align = 'hv', rel_heights = c(2, 2, 2))
@@ -989,12 +1023,21 @@ As an example, some predictions for the movie bias are shown in the table below 
 
 ```{r, echo=FALSE}
 edx_sample <- edx_movies %>%
-  mutate(pred_1 = mu + b_m, pred_2 = mu + b_m + b_mu, pred_3 = mu + b_v + b_w + b_x) %>%
-  select(userId, movieId, title, year, rating, pred_1, pred_2, pred_3) %>%
-  filter(nchar(title) <= 30) %>%
+  mutate(Movie = mu + b_m,
+         Movie_User = mu + b_m + b_mu,
+         Interaction = mu + b_v + b_w + b_x,
+         diff_1 = abs(rating - mu - b_v),
+         diff_2 = abs(rating - mu - b_v - b_w),
+         diff_3 = abs(rating - mu - b_v - b_w - b_x)
+  ) %>%
+  filter(nchar(title) <= 30,
+         diff_3 <= diff_2,
+         diff_2 <= diff_1) %>%
+  select(userId, movieId, title, year, rating, Movie, Movie_User, Interaction) %>%
   sample_n(5)
-data_summary <- edx_sample %>% select(userId, movieId, title, year, rating, pred_1)
-kable(data_summary) %>% kable_styling(font_size = 9)
+data_summary <- edx_sample %>% select(userId, movieId, title, year, rating, Movie)
+kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
 ```
 
 ## 3.5 Bias (Multiple)
@@ -1026,16 +1069,18 @@ The definition of the second bias has changed. When the first bias pertains to t
 The table below presents the RMSE values for different prediction types used in our analysis : average and bias for Movie, and the multiple biases applied to Movie and User, and Movie, User and Genres.
 
 ```{r, echo=FALSE}
-kable(results %>%
-  filter(Type %in% c("Target", "Average", "Movie", "Movie + User", "Movie + User + Genres"))) %>%
-  kable_styling(full_width = F)
+data_summary <- results %>%
+        filter(Type %in% c("Target", "Average", "Movie", "Movie + User", "Movie + User + Genres"))
+kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
+
 ```
 
 \newpage
 
 The following plot show the distribution of errors for the Movie bias (simple) and the Movie + User one (multiple) :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Comparison of the Distribution of errors", fig.width=4, fig.height=3}
+```{r, echo=FALSE, fig.align="center", fig.cap = "Comparison of the Distribution of errors", fig.width=4, fig.height=3}
 bind_rows(
   edx_movies %>% mutate(err = rating - mu - b_m, Type = "Movie") %>% select(rating, err, Type),
   edx_movies %>% mutate(err = rating - mu - b_m - b_mu, Type = "Movie+User") %>% select(rating, err, Type)
@@ -1046,15 +1091,15 @@ bind_rows(
   geom_line(size = 1) +  # Use geom_line for lines instead of areas
   scale_color_manual(values = c("Movie" = "darkred", "Movie+User" = "grey")) +
   labs(x = "Error", y = "Density") +
-  theme_minimal() + 
-  theme(legend.position = "top")
+  theme_minimal() + theme(text = element_text(size = 9), legend.position = "top")
 ```
 
 As an example, some predictions for the movie and user biases are shown in the table below :
 
 ```{r, echo=FALSE}
-data_summary <- edx_sample %>% select(userId, movieId, title, year, rating, pred_1, pred_2)
-kable(data_summary) %>% kable_styling(font_size = 9)
+data_summary <- edx_sample %>% select(userId, movieId, title, year, rating, Movie, Movie_User)
+kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
 ```
 
 ## 3.6 Regularisation
@@ -1075,13 +1120,13 @@ and :
 b_{u,m} = \frac{\displaystyle\sum_{j} (y_{j} - \mu - b_{m})}{N + \lambda}
 \end{equation}
 
-The figure below shows how the (RMSE varies with the regularisation parameter $\lambda$ :
-
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "Cross‑validated RMSE vs Regularisation Strength", fig.width=4, fig.height=3}
+The figure below shows how the (RMSE varies with the regularisation parameter $\lambda$ :  
+  
+```{r, echo=FALSE, fig.align="center", fig.cap = "Cross‑validated RMSE vs Regularisation Strength", fig.width=4, fig.height=3}
 ggplot(mapping = aes(x = lambdas, y = rmse_arr)) +
   geom_point(color = "darkred") +
   labs(x = "Lambda", y = "RMSE") +
-  theme_minimal() + theme(legend.position = "top")
+  theme_minimal() + theme(text = element_text(size = 9), legend.position = "top")
 ```
 
 The minimum value is reached when $\lambda$ = 0.5, the RMSE is then **0.8566952**.
@@ -1089,14 +1134,15 @@ The minimum value is reached when $\lambda$ = 0.5, the RMSE is then **0.8566952*
 This result is a litle bit below the Movie + User method :
 
 ```{r, echo=FALSE}
-kable(results %>%
-  filter(Type %in% c("Target", "Average", "Movie", "Movie + User", "Regularisation (Movie + User)"))) %>%
-  kable_styling(full_width = F)
+data_summary <- results %>%
+        filter(Type %in% c("Target", "Average", "Movie", "Movie + User", "Regularisation (Movie + User)"))
+kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
 ```
 
 \newpage
 
-## 3.7 Multi-dimension bias
+## 3.7 Interaction
 
 As we discussed earlier in section 2.3.8.3, we can estimate ratings using one or more variables.
 
@@ -1130,13 +1176,15 @@ The table below illustrate the comparison of RMSEs between the Movie, User and G
 ```{r, echo=FALSE}
 # Define the desired order for the filter
 desired_order <- c("Target", "Average", "Movie", "movieId, t_year", 
-                   "User", "userId, t_year", "Genres", "t_year, year, genres")
+                   "User", "userId, t_year", "Genres", "movieId, t_year, genres")
 # Filter and order the results
-kable(results %>%
+data_summary <- results %>%
   filter(Type %in% desired_order) %>%
   mutate(Type = factor(Type, levels = desired_order)) %>%
-  arrange(Type)) %>%
-  kable_styling(full_width = F)
+  arrange(Type)
+kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position")) %>%
+  row_spec(c(seq(3, 4), seq(7, 8)), background = "#f2f2f2")
 ```
 
 In each case, we achieve a lower RMSE by utilizing a combination of variables rather than relying on a single variable.
@@ -1203,23 +1251,23 @@ After incorporating the three bias components, the model achieves an RMSE of **0
 # Define the desired order for the filter
 desired_order <- c("Target", "Average", "Movie",
                    "Regularisation (Movie + User)", 
-                   "2D/3D Interaction")
+                   "Interaction")
 # Filter and order the results
-kable(results %>%
+data_summary <- results %>%
   filter(Type %in% desired_order) %>%
   mutate(Type = factor(Type, levels = desired_order)) %>%
-  arrange(Type)) %>%
-  kable_styling(full_width = F)
+  arrange(Type)
+kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
 ```
 
 As an example, some predictions are shown in the table below :
 
 ```{r, echo=FALSE}
-data_summary <- edx_sample %>% select(userId, movieId, title, year, rating, pred_1, pred_2, pred_3)
-kable(data_summary) %>% kable_styling(font_size = 9)
+data_summary <- edx_sample %>% select(userId, movieId, title, year, rating, Movie, Movie_User, Interaction)
+kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
 ```
-
-\newpage
 
 ## 3.8 Clamping
 
@@ -1229,30 +1277,48 @@ While we have now a relatively low RMSE of 0.8417290, further analysis of the da
 data_summary <- data.frame(Variable = c("Rating", "Prediction"),
                            Min = c(min(edx_movies$rating), min(edx_movies$pred)),
                            Max = c(max(edx_movies$rating), max(edx_movies$pred)))
-kable(data_summary) %>% kable_styling(full_width = F)
+kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
 ```
 
 We should be able to reduce the RMSE by replacing all values out of the expected range by 0.5 or 5. We can even go further by replacing all values outside a smaller range by 0.5 or 5.
 
 Let's try first with the maximum value a prediction can take. The graph below shows that the minimum RMSE we can get is when we clamp all data above 4.64 :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "RMSE vs VMax", fig.width=4, fig.height=2}
+```{r, echo=FALSE, fig.align="center", fig.cap = "RMSE vs VMax", fig.width=4, fig.height=2}
 ggplot(mapping = aes(x = vmaxs, y = rmse_clamp_max_arr)) +
   geom_point(color = "darkred") +
   labs(x = "VMax", y = "RMSE") +
-  theme_minimal() + theme(legend.position = "top")
+  theme_minimal() + theme(text = element_text(size = 9), legend.position = "top")
 ```
+
+\newpage
 
 Using a maximum value of 4.64, we can continue and determine the minimum value which will give us the best RMSE is 0.93 :
 
-```{r, echo=FALSE, fig.align="center", fig.pos="H", fig.cap = "RMSE vs VMin", fig.width=4, fig.height=2}
+```{r, echo=FALSE, fig.align="center", fig.cap = "RMSE vs VMin", fig.width=4, fig.height=2}
 ggplot(mapping = aes(x = vmins, y = rmse_clamp_min_arr)) +
   geom_point(color = "darkred") +
   labs(x = "VMin", y = "RMSE") +
-  theme_minimal() + theme(legend.position = "top")
+  theme_minimal() + theme(text = element_text(size = 9), legend.position = "top")
 ```
 
-We now have an RMSE of **0.8412219**.
+We now have an RMSE of **0.8412219** :
+
+```{r, echo=FALSE}
+# Define the desired order for the filter
+desired_order <- c("Target", "Average", "Movie",
+                   "Regularisation (Movie + User)", 
+                   "Interaction",
+                   "Interaction + Clamping")
+# Filter and order the results
+data_summary <- results %>%
+  filter(Type %in% desired_order) %>%
+  mutate(Type = factor(Type, levels = desired_order)) %>%
+  arrange(Type)
+kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+  kable_styling(font_size = 9, latex_options = c("hold_position"))
+```
 
 \newpage
 
@@ -1315,3 +1381,5 @@ Stage 1 – Classification: Predict whether a user will assign a half‑mark or 
 Stage 2 – Regression: Apply separate bias‑adjusted regression formulas for the two groups (one for half‑marks, another for full marks). Each regression would use the appropriate bias terms (movie, user, time, etc.) tailored to that subgroup.
 
 By first determining the likely rating granularity and then applying a specialized regression model, we expect to reduce prediction error further.
+
+An alternative approach worth considering is the application of Matrix Factorization techniques, such as Singular Value Decomposition (SVD) or Non-negative Matrix Factorization (NMF), to enhance our prediction model and potentially achieve a further reduction of the RMSE.
