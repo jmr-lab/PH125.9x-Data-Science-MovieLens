@@ -1,34 +1,41 @@
-README for Movie Rating Prediction Project
+# README for Movie Rating Prediction Project
 
-Overview
+## Overview
 
 This project, titled "Movie Rating Prediction," aims to explore and create a movie recommendation system using the MovieLens dataset. The dataset utilized contains approximately 10 million ratings, and the objective is to predict movie ratings with a root mean square error (RMSE) lower than 0.86490.
 
-Author : Jean-Marie Roy
-Date : December 16, 2025
+Author : Jean-Marie Roy  
+Date : 23 January 2025  
 
-Requirements
+## Requirements
 
 To run this project, ensure you have the following packages installed:
 
     install.packages(c("dplyr", "ggplot2", "knitr", "kableExtra", "tidyverse"))
 
-Running the Analysis
+## Running the Analysis
 
-Setup Environment:
+### Setup Environment:
 
-  The setup and MovieLens script can be executed separately for efficiency.
+  There are two ways to render the PDF document.
+  The first one used during development involved running the Setup, MovieLens and rmd scripts separately : 
 
-  Use the following command to render the entire document:
-
+    source("01 Setup.R")
+    source("03 MovieLens.R")
     rmarkdown::render("MovieLens.Rmd")
 
-  Alternatively, you can include scripts directly by uncommenting the source lines in the setup code chunk.
+  Otherwise you can include the scripts directly in the R Markdown document by uncommenting the following lines in the MovieLens R file :
 
-Data Sources:
+    # source("01 Setup.R") 
+    # source("03 MovieLens.R")
+
+  This allows the scripts to run inline, but wasn't used during development to reduce the time needed for rendering the pdf at each iteration.
+
+### Data Sources:
   The MovieLens dataset can be downloaded from MovieLens 10M Dataset.
   Background context can be referred to in the paper by F. Maxwell Harper and Joseph A. Konstan (2015).
 
+### Summary:
 This project illustrates a systematic approach to developing a movie recommendation system while following data science principles and techniques. The analysis provides insights into user behavior, movie ratings, and factors influencing the predictions, rounded out with exploratory data analysis and necessary transformations for effective modeling.
 
 For a complete exploration, refer to the provided R Markdown document, which contains detailed code and outputs for each step in the process.
