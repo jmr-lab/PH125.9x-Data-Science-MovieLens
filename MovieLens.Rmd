@@ -7,6 +7,7 @@ output:
     toc: false
     toc_depth: 2
     extra_dependencies: ["float"]
+    latex_engine: xelatex
   html_document:
     df_print: paged
 header-includes:
@@ -19,28 +20,28 @@ knitr::opts_chunk$set(echo = TRUE, fig.pos = "H", out.extra = "")
 ```
 
 ```{r, echo=FALSE}
-# To increase the speed of the rendering, we only run the setup and the "MovieLens" code separately,
+# To increase the speed of the rendering, we only run the "MovieLens" code separately,
 # and use the variables stored in the global environment.
 # This also allows to reduce the size of the Rmd file by moving as much code as possible to the R file.
 # To be able to access the variables, the markdown code should be run in the console :
 #
 # rmarkdown::render("MovieLens.Rmd")
 #
-# The other option is to include the 2 scripts in this file by removing the comments of the lines below :
+# The other option is to include the script in this file by removing the comment of the line below :
 #
-# source("01 Setup.R") 
-# source("03 MovieLens.R")
+# source("MovieLens.R")
 #
 ```
 
 \vspace*{\fill}
 
-\begin{figure}[h]
+\begin{figure}[b]
   \centering
-  \includegraphics[width=0.5\textwidth]{title-image.png}
+  \includegraphics[width=0.5\textwidth]{movielens-cover.png}
+  \caption{My Image Caption}
   \label{fig:my_image}
 \end{figure}
-
+  
 \vspace*{\fill}
 
 \newpage
@@ -93,6 +94,10 @@ The main dataset is created by merging ratings with movie details, and then a ra
 This section provides an overview of the datasets used in our analysis. We have two datasets: one for training our prediction algorithm and another for testing its effectiveness.
 
 The training dataset, edx, shares the same structure as the final_holdout_test dataset, which is used for testing.
+
+```{r}
+knitr::knit_exit()
+```
 
 The edx dataset contains approximately 9 million ratings for various movies and consists of six variables :
 
@@ -1368,18 +1373,20 @@ The final RMSE obtained on the hold‑out test set is **\large0.8579874**.
 
 # 5 Conclusion
 
-We achieved our target, obtaining an RMSE of **0.8579874**, which is lower than the required maximum of **0.86490**.
+We achieved our target with an RMSE of 0.8579874, which is below the required maximum of 0.86490.
 
-To reach this result we experimented with several bias‑based methods and selected the combination that performed best on the validation data.
+The data analysis indicated that ratings are primarily influenced by movieId, followed by userId, genres, year, and surprisingly, timestamp year. Notably, I conducted this analysis on a work laptop with limited computing resources (primarily intended for Office applications) but still managed to attain a relatively low RMSE.
 
-Further improvements are possible. The distribution of ratings in the training set is not perfectly normal because a subset of users consistently give half‑star ratings. If we separate the data into half‑mark and full‑mark subsets, each subset approximates a normal distribution.
+To achieve these results, we experimented with various bias-based methods and selected the combination that excelled on the validation data.
 
-A promising next step would be a two‑stage modeling approach:
+There are opportunities for further improvements. The distribution of ratings in the training set isn't perfectly normal, primarily due to a subset of users consistently providing half-star ratings. By separating the data into half-mark and full-mark subsets, we could better approximate a normal distribution for each.
 
-Stage 1 – Classification: Predict whether a user will assign a half‑mark or a full mark to a given movie. This binary decision could be modeled with logistic regression, a tree‑based classifier, or any suitable machine‑learning algorithm.
+A promising next step involves a two-stage modeling approach:
 
-Stage 2 – Regression: Apply separate bias‑adjusted regression formulas for the two groups (one for half‑marks, another for full marks). Each regression would use the appropriate bias terms (movie, user, time, etc.) tailored to that subgroup.
+Stage 1 – Classification: Predict whether a user will assign a half-mark or a full mark to a given movie. This binary decision could be modeled using logistic regression, a tree-based classifier, or other suitable machine learning algorithms.
 
-By first determining the likely rating granularity and then applying a specialized regression model, we expect to reduce prediction error further.
+Stage 2 – Regression: Apply distinct bias-adjusted regression formulas for both groups. Each regression would utilize the appropriate bias terms (movie, user, time, etc.) tailored to that specific subgroup.
 
-An alternative approach worth considering is the application of Matrix Factorization techniques, such as Singular Value Decomposition (SVD) or Non-negative Matrix Factorization (NMF), to enhance our prediction model and potentially achieve a further reduction of the RMSE.
+By first determining the likely rating granularity and then employing specialized regression models, we expect to further reduce prediction error.
+
+Additionally, we plan to optimize the code to enhance execution speed and minimize runtime. Furthermore, we aim to explore the applicability of linear regression or alternative algorithms like k-nearest neighbors (k-NN) and random forest, while also investigating the integration of Matrix Factorization techniques. Through these enhancements to our modeling strategy, we anticipate significant reductions in prediction error and improved overall efficiency in our analysis.
