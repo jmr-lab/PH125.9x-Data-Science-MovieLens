@@ -276,6 +276,7 @@ persp(interp_data$x, interp_data$y, interp_data$z, main = "Ratings",
       theta = 30, phi = 30, expand = 0.5, col = "lightblue",shade = 0.5,
       cex.main = 0.8, cex.lab = 0.8, cex.axis = 0.8)
 
+# Remove unused variables
 rm(distinct_userIds, distinct_movieIds, df, x, y, z)
 
 # Let's split the train dataset in 2 and count the number of unique rows for each couple :
@@ -780,14 +781,6 @@ avg_rating_per_genres <- edx_movies %>%
   mutate(source = "Genres")
 head(avg_rating_per_genres)
 
-# Average rating per year
-#avg_rating_per_year <- edx_movies %>%
-#  group_by(year) %>%
-#  summarise(avg_rating = mean(rating)) %>%
-#  ungroup() %>%
-#  mutate(source = "Year")
-#head(avg_rating_per_year)
-
 # Average rating per t_month_year
 # We add a column t_month_year :
 edx_movies <- edx_movies %>%
@@ -1085,28 +1078,10 @@ head(b_g)
 edx_movies <- edx_movies %>% left_join(b_g, by = "genres")
 head(edx_movies)
 
-# Year (timestamp) bias
-#b_ty <- edx_movies %>%
-#  group_by(t_year) %>%
-#  summarise(b_ty = mean(rating - mu))
-#head(b_ty)
-#edx_movies <- edx_movies %>% left_join(b_ty, by = "t_year")
-#head(edx_movies)
-
-# Year (release) bias
-#b_y <- edx_movies %>%
-#  group_by(year) %>%
-#  summarise(b_y = mean(rating - mu))
-#head(b_y)
-#edx_movies <- edx_movies %>% left_join(b_y, by = "year")
-#head(edx_movies)
-
 # Add the movie and user RMSE values to the results table :
 results <- results %>% add_row(Type = "Movie", RMSE = RMSE(edx$rating, mu + edx_movies$b_m))
 results <- results %>% add_row(Type = "User", RMSE = RMSE(edx$rating, mu + edx_movies$b_u))
 results <- results %>% add_row(Type = "Genres", RMSE = RMSE(edx$rating, mu + edx_movies$b_g))
-#results <- results %>% add_row(Type = "Year (timestamp)", RMSE = RMSE(edx$rating, mu + edx_movies$b_ty))
-#results <- results %>% add_row(Type = "Year (release)", RMSE = RMSE(edx$rating, mu + edx_movies$b_y))
 
 # Display the RMSEs :
 results %>%
@@ -1159,6 +1134,7 @@ head(b_mu)
 edx_movies <- edx_movies %>% left_join(b_mu, by = "userId")
 head(edx_movies)
 
+# Add the RMSE to the results table
 results <- results %>% add_row(Type = "Movie + User", RMSE = RMSE(edx_movies$rating, mu + edx_movies$b_m + edx_movies$b_mu))
 
 # Genres bias applied after Movie + User bias
@@ -1170,6 +1146,7 @@ head(b_mug)
 edx_movies <- edx_movies %>% left_join(b_mug, by = "genres")
 head(edx_movies)
 
+# Add the RMSE to the results table
 results <- results %>% add_row(Type = "Movie + User + Genres",
                                RMSE = RMSE(edx_movies$rating, mu + edx_movies$b_m + edx_movies$b_mu + edx_movies$b_mug))
 
@@ -1212,14 +1189,12 @@ get_rmse <- function(lambda) {
   b_m_reg <- edx_movies_dt[, .(b_m_reg = sum(rating - mu) / (.N + lambda)), by = movieId]
   
   # Join movie biases back to the temporary data.table
-  #  setkey(edx_movies_dt, movieId)
   edx_movies_dt[b_m_reg, on = "movieId", b_m_reg := b_m_reg]
   
   # Calculate user bias
   b_mu_reg <- edx_movies_dt[, .(b_mu_reg = sum(rating - mu - b_m_reg) / (.N + lambda)), by = userId]
   
   # Join user biases back to the temporary data.table
-  #  setkey(edx_movies_dt, userId)
   edx_movies_dt[b_mu_reg, on = "userId", b_mu_reg := b_mu_reg]
   
   # Calculate predictions using the updated temporary data
@@ -1231,26 +1206,10 @@ get_rmse <- function(lambda) {
   # Calculating RMSE
   return(RMSE(edx_movies_dt$rating, predictions))
 }
-start_time <- Sys.time()
+#start_time <- Sys.time()
 rmse_arr <- sapply(lambdas, get_rmse)
-end_time <- Sys.time()
-as.numeric(difftime(end_time, start_time, units = "secs"))
-rmse_arr
-
-# The following function is too slow and had to be replaced with something based on data.table :
-#rmse_arr <- sapply(lambdas, function(lambda) {
-#  b_m_reg <- edx_movies %>%
-#    group_by(movieId) %>%
-#    summarise(b_m_reg = sum(rating - mu)/(n() + lambda))
-#  edx_movies <- edx_movies %>% left_join(b_m_reg, by = "movieId")
-#  
-#  b_mu_reg <- edx_movies %>%
-#    group_by(userId) %>%
-#    summarise(b_mu_reg = sum(rating - mu - b_m_reg)/(n() + lambda))
-#  edx_movies <- edx_movies %>% left_join(b_mu_reg, by = "userId")
-#  
-#  RMSE(edx_movies$rating, mu + edx_movies$b_m_reg + edx_movies$b_mu_reg)
-#})
+#end_time <- Sys.time()
+#as.numeric(difftime(end_time, start_time, units = "secs"))
 
 # Plot the RMSEs against the values of alpha :
 ggplot(mapping = aes(x = lambdas, y = rmse_arr)) +
@@ -1342,8 +1301,10 @@ edx_movies <- edx_movies %>%
   left_join(b_x, by = c("movieId", "t_year", "genres")) %>%
   mutate(b_x = replace_na(b_x, 0))
 
-# Display the updated RMSEs : 0.8417134
+# New RMSE : 0.8417134
 RMSE(edx_movies$rating, mu + edx_movies$b_v + edx_movies$b_w + edx_movies$b_x)
+
+# Add the RMSE to the results table
 results <- results %>% add_row(Type = "Interaction",
                                RMSE = RMSE(edx_movies$rating, mu + edx_movies$b_v + edx_movies$b_w + edx_movies$b_x))
 
@@ -1351,6 +1312,7 @@ results <- results %>% add_row(Type = "Interaction",
 desired_order <- c("Target", "Average", "Movie",
                    "Regularisation (Movie + User)", 
                    "Interaction")
+
 # Filter and order the results
 results %>%
   filter(Type %in% desired_order) %>%
@@ -1440,16 +1402,16 @@ results %>%
 ###             Final RMSE (test set)             ###
 #####################################################
 
-# Let's count the number of rows only in final_holdout_test for each couple :
+# We need to add new columns to the final_holdout_test data set : t_year and year
 final_holdout_test_movies <- final_holdout_test %>%
   mutate(
-    # Convert timestamp to POSIXct (assuming it's in seconds)
     datetime = as.POSIXct(timestamp, origin = "1970-01-01", tz = "UTC"),
     t_year = year(datetime),
     year = as.integer(str_extract(title, "(?<=\\()\\d{4}(?=\\))"))
   ) %>%
   select(userId, movieId, rating, t_year, title, year, genres)
 
+# Join the bias terms :
 final_holdout_test_movies <- final_holdout_test_movies %>%
   left_join(b_v, by = c("movieId", "t_year")) %>%
   mutate(b_v = replace_na(b_v, 0))
@@ -1462,11 +1424,13 @@ final_holdout_test_movies <- final_holdout_test_movies %>%
   left_join(b_x, by = c("movieId", "t_year", "genres")) %>%
   mutate(b_x = replace_na(b_x, 0))
 
+# Compute the predictions :
 final_holdout_test_movies$pred <- pmin(pmax(mu +
                                               final_holdout_test_movies$b_v +
                                               final_holdout_test_movies$b_w +
                                               final_holdout_test_movies$b_x, 0.93), 4.64)
 
+# Final RMSE is 0.8579874
 RMSE(final_holdout_test_movies$rating, final_holdout_test_movies$pred)
 
 #####################################################
