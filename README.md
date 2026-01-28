@@ -18,16 +18,14 @@ To run this project, ensure you have the following packages installed:
 ### Setup Environment:
 
   There are two ways to render the PDF document.
-  The first one used during development involved running the Setup, MovieLens and rmd scripts separately : 
+  The first one used during development involved running the MovieLens and rmd scripts separately : 
 
-    source("01 Setup.R")
-    source("03 MovieLens.R")
+    source("MovieLens.R")
     rmarkdown::render("MovieLens.Rmd")
 
-  Otherwise you can include the scripts directly in the R Markdown document by uncommenting the following lines in the MovieLens R file :
+  Otherwise you can include the script directly in the R Markdown document by uncommenting the following line in the MovieLens Rmd file :
 
-    # source("01 Setup.R") 
-    # source("03 MovieLens.R")
+    # source("MovieLens.R")
 
   This allows the scripts to run inline, but wasn't used during development to reduce the time needed for rendering the pdf at each iteration.
 
