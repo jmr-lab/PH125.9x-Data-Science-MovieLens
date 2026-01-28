@@ -33,16 +33,13 @@ knitr::opts_chunk$set(echo = TRUE, fig.pos = "H", out.extra = "")
 #
 ```
 
+\begin{center}
 \vspace*{\fill}
 
-\begin{figure}[b]
-  \centering
-  \includegraphics[width=0.5\textwidth]{movielens-cover.png}
-  \caption{My Image Caption}
-  \label{fig:my_image}
-\end{figure}
-  
+\includegraphics[width=0.2\textwidth]{movielens-cover.png}
+
 \vspace*{\fill}
+\end{center}
 
 \newpage
 
@@ -94,10 +91,6 @@ The main dataset is created by merging ratings with movie details, and then a ra
 This section provides an overview of the datasets used in our analysis. We have two datasets: one for training our prediction algorithm and another for testing its effectiveness.
 
 The training dataset, edx, shares the same structure as the final_holdout_test dataset, which is used for testing.
-
-```{r}
-knitr::knit_exit()
-```
 
 The edx dataset contains approximately 9 million ratings for various movies and consists of six variables :
 
@@ -221,7 +214,7 @@ The goal of our future analysis is to find which groups of variables can serve a
 
 Research suggests that most Americans can be uniquely identified using just a combination of their zip code, sex, and birth date. In our analysis, we need to explore which combinations of variables can almost pinpoint a user's rating. These combinations should be avoided because, while they may perform well on training data, they are likely to lead to poor predictions on test data.
 
-For our current dataset, we know that the pair (movieId, userId) functions as a reliable key since each user rates a specific movie only once.
+In our current dataset, the combination of (movieId, userId) serves as a reliable key, as each user rates a specific movie only once. For example, the figure below illustrates the ratings represented on the z-axis, with movieId on the x-axis and userId on the y-axis :
 
 ```{r, echo=FALSE, fig.align="center", fig.cap = "Rating per user and movie", fig.height=5}
 persp(interp_data$x, interp_data$y, interp_data$z, main = "Ratings", 
@@ -522,6 +515,8 @@ By the late 2000s, genres such as Action, Comedy, and Drama show significantly h
 
 The decrease in ratings in 2010 is likely because users may not have had the time to rate the latest movies.
 
+For the remainder of the analysis, we will use the combined genres.
+
 \newpage
 
 ### 2.3.7 Timestamp
@@ -739,7 +734,7 @@ The other four plots show approximately a normal distribution centered around 3.
 
 \newpage
 
-We can enhance our analysis by comparing the average rating for each variable (expressed as a percentage) with the distribution of ratings :
+We can enhance our analysis by comparing the average rating for each variable (expressed as a percentage) to the distribution of ratings. The dashed line, representing the count of rounded ratings, is illustrated in Figure 11 :
 
 ```{r, echo=FALSE, fig.align="center", fig.cap = "Distribution of ratings", fig.height=4}
 plot_grid(

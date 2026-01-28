@@ -1037,7 +1037,8 @@ lines_data <- selected_ratings %>%
   group_by(movieId) %>%
   summarise(avg_rating = mean(rating),
             x_start = min(index),
-            x_end = max(index))
+            x_end = max(index),
+            .groups = "drop")
 
 # Create the base plot and add horizontal lines for the average rating,
 # constrained to the respective index range
@@ -1057,7 +1058,7 @@ rm(selected_movies)
 # Movie bias
 b_m <- edx_movies %>%
   group_by(movieId) %>%
-  summarise(b_m = mean(rating - mu))
+  summarise(b_m = mean(rating - mu), .groups = "drop")
 head(b_m)
 edx_movies <- edx_movies %>% left_join(b_m, by = "movieId")
 head(edx_movies)
@@ -1065,7 +1066,7 @@ head(edx_movies)
 # User bias
 b_u <- edx_movies %>%
   group_by(userId) %>%
-  summarise(b_u = mean(rating - mu))
+  summarise(b_u = mean(rating - mu), .groups = "drop")
 head(b_u)
 edx_movies <- edx_movies %>% left_join(b_u, by = "userId")
 head(edx_movies)
@@ -1073,7 +1074,7 @@ head(edx_movies)
 # Genres bias
 b_g <- edx_movies %>%
   group_by(genres) %>%
-  summarise(b_g = mean(rating - mu))
+  summarise(b_g = mean(rating - mu), .groups = "drop")
 head(b_g)
 edx_movies <- edx_movies %>% left_join(b_g, by = "genres")
 head(edx_movies)
@@ -1129,7 +1130,7 @@ RMSE(edx$rating, mu + edx_movies$b_m + edx_movies$b_u)
 # RMSE is now lower : 0.8567039
 b_mu <- edx_movies %>%
   group_by(userId) %>%
-  summarise(b_mu = mean(rating - mu - b_m))
+  summarise(b_mu = mean(rating - mu - b_m), .groups = "drop")
 head(b_mu)
 edx_movies <- edx_movies %>% left_join(b_mu, by = "userId")
 head(edx_movies)
@@ -1141,7 +1142,7 @@ results <- results %>% add_row(Type = "Movie + User", RMSE = RMSE(edx_movies$rat
 # RMSE is now a litle bit lower : 0.8563595
 b_mug <- edx_movies %>%
   group_by(genres) %>%
-  summarise(b_mug = mean(rating - mu - b_m - b_mu))
+  summarise(b_mug = mean(rating - mu - b_m - b_mu), .groups = "drop")
 head(b_mug)
 edx_movies <- edx_movies %>% left_join(b_mug, by = "genres")
 head(edx_movies)
@@ -1237,7 +1238,7 @@ lambda <- 0.5
 # Variable v : movieId, t_year
 b_v <- edx_movies %>%
   group_by(movieId, t_year) %>%
-  summarise(b_v = mean(rating - mu))
+  summarise(b_v = mean(rating - mu), .groups = "drop")
 edx_movies <- edx_movies %>%
   left_join(b_v, by = c("movieId", "t_year")) %>%
   mutate(b_v = replace_na(b_v, 0))
@@ -1245,7 +1246,7 @@ edx_movies <- edx_movies %>%
 # Variable w : userId, t_year
 b_w <- edx_movies %>%
   group_by(userId, t_year) %>%
-  summarise(b_w = mean(rating - mu))
+  summarise(b_w = mean(rating - mu), .groups = "drop")
 edx_movies <- edx_movies %>%
   left_join(b_w, by = c("userId", "t_year")) %>%
   mutate(b_w = replace_na(b_w, 0))
@@ -1253,7 +1254,7 @@ edx_movies <- edx_movies %>%
 # Variable x : movieId, t_year, genres
 b_x <- edx_movies %>%
   group_by(movieId, t_year, genres) %>%
-  summarise(b_x = mean(rating - mu))
+  summarise(b_x = mean(rating - mu), .groups = "drop")
 edx_movies <- edx_movies %>%
   left_join(b_x, by = c("movieId", "t_year", "genres")) %>%
   mutate(b_x = replace_na(b_x, 0))
@@ -1280,7 +1281,7 @@ edx_movies <- edx_movies %>% select(-b_v, -b_w, -b_x)
 # Variable v : movieId, t_year
 b_v <- edx_movies %>%
   group_by(movieId, t_year) %>%
-  summarise(b_v = sum(rating - mu)/(n() + lambda))
+  summarise(b_v = sum(rating - mu)/(n() + lambda), .groups = "drop")
 edx_movies <- edx_movies %>%
   left_join(b_v, by = c("movieId", "t_year")) %>%
   mutate(b_v = replace_na(b_v, 0))
@@ -1288,7 +1289,7 @@ edx_movies <- edx_movies %>%
 # Variable w : userId, t_year
 b_w <- edx_movies %>%
   group_by(userId, t_year) %>%
-  summarise(b_w = sum(rating - mu - b_v)/(n() + lambda))
+  summarise(b_w = sum(rating - mu - b_v)/(n() + lambda), .groups = "drop")
 edx_movies <- edx_movies %>%
   left_join(b_w, by = c("userId", "t_year")) %>%
   mutate(b_w = replace_na(b_w, 0))
@@ -1296,7 +1297,7 @@ edx_movies <- edx_movies %>%
 # Variable x : movieId, t_year, genres
 b_x <- edx_movies %>%
   group_by(movieId, t_year, genres) %>%
-  summarise(b_x = sum(rating - mu - b_v - b_w)/(n() + lambda))
+  summarise(b_x = sum(rating - mu - b_v - b_w)/(n() + lambda), .groups = "drop")
 edx_movies <- edx_movies %>%
   left_join(b_x, by = c("movieId", "t_year", "genres")) %>%
   mutate(b_x = replace_na(b_x, 0))
