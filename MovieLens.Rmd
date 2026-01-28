@@ -1,7 +1,7 @@
 ---
 title: "Movie Rating Predictions"
 author: "Jean-Marie Roy"
-date: "2026-01-23"
+date: "2026-01-28"
 output:
   pdf_document:
     toc: false
@@ -30,6 +30,9 @@ knitr::opts_chunk$set(echo = TRUE, fig.pos = "H", out.extra = "")
 # The other option is to include the script in this file by removing the comment of the line below :
 #
 # source("MovieLens.R")
+#
+# Note that the image below is decorative onle and will be downloaded from github
+# when running the MovieLens script.
 #
 ```
 
@@ -1369,8 +1372,12 @@ The final RMSE obtained on the hold‑out test set is **\large0.8579874**.
 # 5 Conclusion
 
 We achieved our target with an RMSE of 0.8579874, which is below the required maximum of 0.86490.
+However, this value is relatively high within the context of a rating scale from 0 to 5, suggesting that there is potential for further improvements.
 
-The data analysis indicated that ratings are primarily influenced by movieId, followed by userId, genres, year, and surprisingly, timestamp year. Notably, I conducted this analysis on a work laptop with limited computing resources (primarily intended for Office applications) but still managed to attain a relatively low RMSE.
+The average rating in the dataset is 3.51, which surpasses the midpoint of 2.5 in a range where ratings extend from 0.5 to 5.
+This indicates that users generally assigned favorable scores to the movies they watched, implying that they primarily selected films they anticipated enjoying.
+
+The data analysis indicated that ratings are primarily influenced by movieId, followed by userId, genres, year, and surprisingly, timestamp year. Notably, this analysis was done on a work laptop with limited computing resources (primarily intended for Office applications) but still managed to attain a relatively low RMSE.
 
 To achieve these results, we experimented with various bias-based methods and selected the combination that excelled on the validation data.
 
