@@ -1341,51 +1341,53 @@ data.frame(Variable = c("Rating", "Prediction"),
            Min = c(min(edx_movies$rating), min(edx_movies$pred)),
            Max = c(max(edx_movies$rating), max(edx_movies$pred)))
 
-# Set the vmax values between 4.25 and 5 :
-vmaxs <- seq(4.25, 5, 0.01)
+# Set the rmax values between 4.25 and 5 :
+rmaxs <- seq(4.25, 5, 0.01)
 
-# Function to calculate the RMSE based on vmax :
-rmse_clamp_max_arr <- sapply(vmaxs, function(vmax) {
-  edx_movies$pred_clamp <- pmin(edx_movies$pred, vmax)
+# Function to calculate the RMSE based on rmax :
+rmse_clamp_max_arr <- sapply(rmaxs, function(rmax) {
+  edx_movies$pred_clamp <- pmin(edx_movies$pred, rmax)
   RMSE(edx_movies$rating, edx_movies$pred_clamp)
 })
 
-# Display the RMSE vs vmax :
-ggplot(mapping = aes(x = vmaxs, y = rmse_clamp_max_arr)) +
+# Display the RMSE vs rmax :
+ggplot(mapping = aes(x = rmaxs, y = rmse_clamp_max_arr)) +
   geom_point(color = "darkred") +
-  labs(x = "VMax", y = "RMSE") +
+  labs(x = "RMax", y = "RMSE") +
   theme_minimal() + theme(legend.position = "top")
 
-# vmax = 4.64
-vmaxs[which.min(rmse_clamp_max_arr)]
+# rmax = 4.64
+rmax <- rmaxs[which.min(rmse_clamp_max_arr)]
+rmax
 
 # RMSE : 0.8412606
 rmse_clamp_max_arr[which.min(rmse_clamp_max_arr)]
 
-# Set the vmin values between 0.5 and 1.5 :
-vmins <- seq(0.5, 1.5, 0.01)
+# Set the rmin values between 0.5 and 1.5 :
+rmins <- seq(0.5, 1.5, 0.01)
 
-# Function to calculate the RMSE based on vmin and with a vmax value of 4.64 :
-rmse_clamp_min_arr <- sapply(vmins, function(vmin) {
-  edx_movies$pred_clamp <- pmin(pmax(edx_movies$pred, vmin), 4.64)
+# Function to calculate the RMSE based on rmin and with a rmax value of 4.64 :
+rmse_clamp_min_arr <- sapply(rmins, function(rmin) {
+  edx_movies$pred_clamp <- pmin(pmax(edx_movies$pred, rmin), rmax)
   RMSE(edx_movies$rating, edx_movies$pred_clamp)
 })
 
-# Display the RMSE vs vmin :
-ggplot(mapping = aes(x = vmins, y = rmse_clamp_min_arr)) +
+# Display the RMSE vs rmin :
+ggplot(mapping = aes(x = rmins, y = rmse_clamp_min_arr)) +
   geom_point(color = "darkred") +
-  labs(x = "VMin", y = "RMSE") +
+  labs(x = "RMin", y = "RMSE") +
   theme_minimal() + theme(legend.position = "top")
 
-# vmax = 0.93
-vmins[which.min(rmse_clamp_min_arr)]
+# rmin = 0.93
+rmin <- rmins[which.min(rmse_clamp_min_arr)]
+rmin
 
 # RMSE : 0.8412219
 rmse_clamp_min_arr[which.min(rmse_clamp_min_arr)]
 
-# We now replace all values over vmax with vmax,
-# and all values under vmin with vmin :
-edx_movies$pred_clamp <- pmin(pmax(edx_movies$pred, 0.93), 4.64)
+# We now replace all values over rmax with rmax,
+# and all values under rmin with rmin :
+edx_movies$pred_clamp <- pmin(pmax(edx_movies$pred, rmin), rmax)
 
 # and obviously we get the same RMSE as before : 0.8412219
 RMSE(edx_movies$rating, edx_movies$pred_clamp)
@@ -1429,7 +1431,7 @@ final_holdout_test_movies <- final_holdout_test_movies %>%
 final_holdout_test_movies$pred <- pmin(pmax(mu +
                                               final_holdout_test_movies$b_v +
                                               final_holdout_test_movies$b_w +
-                                              final_holdout_test_movies$b_x, 0.93), 4.64)
+                                              final_holdout_test_movies$b_x, rmin), rmax)
 
 # Final RMSE is 0.8579874
 RMSE(final_holdout_test_movies$rating, final_holdout_test_movies$pred)

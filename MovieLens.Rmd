@@ -1218,31 +1218,34 @@ b_{x} = \frac{\displaystyle\sum_{j} (y_{j} - \mu - b_{v} - b_{w})}{N + \lambda}
 The following R code performs bias calculations based on the edx_movies dataset and joins the results back into the dataset:
 
 ```{r eval=FALSE}
-# Calculate bias for each movie and year, and join to the edx_movies dataset
+# Calculate bias for movieId and t_year
 b_v <- edx_movies %>%
   group_by(movieId, t_year) %>%
   summarise(b_v = sum(rating - mu)/(n() + lambda))
 
+# Join to the edx_movies dataset
 edx_movies <- edx_movies %>%
   left_join(b_v, by = c("movieId", "t_year")) %>%
   mutate(b_v = replace_na(b_v, 0))
 
-# Calculate bias for each user and year, and join to the edx_movies dataset
+# Calculate bias for userId and t_year
 b_w <- edx_movies %>%
   group_by(userId, t_year) %>%
   summarise(b_w = sum(rating - mu - b_v)/(n() + lambda))
 
+# Join to the edx_movies dataset
 edx_movies <- edx_movies %>%
   left_join(b_w, by = c("userId", "t_year")) %>%
   mutate(b_w = replace_na(b_w, 0))
 
-# Calculate bias for each title per year, and join to the edx_movies dataset
+# Calculate bias for movieId, t_year and genres
 b_x <- edx_movies %>%
-  group_by(t_year, year, title) %>%
+  group_by(movieId, t_year, genres) %>%
   summarise(b_x = sum(rating - mu - b_v - b_w)/(n() + lambda))
 
+# Join to the edx_movies dataset
 edx_movies <- edx_movies %>%
-  left_join(b_x, by = c("t_year", "year", "title")) %>%
+  left_join(b_x, by = c("movieId", "t_year", "genres")) %>%
   mutate(b_x = replace_na(b_x, 0))
 ```
 
@@ -1286,23 +1289,23 @@ kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args
 
 We should be able to reduce the RMSE by replacing all values out of the expected range by 0.5 or 5. We can even go further by replacing all values outside a smaller range by 0.5 or 5.
 
-Let's try first with the maximum value a prediction can take. The graph below shows that the minimum RMSE we can get is when we clamp all data above 4.64 :
+Let's try first with the maximum value a prediction can take. The graph below shows that the minimum RMSE we can get is when we clamp all data above 4.64 ($r_{max}$) :
 
-```{r, echo=FALSE, fig.align="center", fig.cap = "RMSE vs VMax", fig.width=4, fig.height=2}
-ggplot(mapping = aes(x = vmaxs, y = rmse_clamp_max_arr)) +
+```{r, echo=FALSE, fig.align="center", fig.cap = "RMSE vs RMax", fig.width=4, fig.height=2}
+ggplot(mapping = aes(x = rmaxs, y = rmse_clamp_max_arr)) +
   geom_point(color = "darkred") +
-  labs(x = "VMax", y = "RMSE") +
+  labs(x = "RMax", y = "RMSE") +
   theme_minimal() + theme(text = element_text(size = 9), legend.position = "top")
 ```
 
 \newpage
 
-Using a maximum value of 4.64, we can continue and determine the minimum value which will give us the best RMSE is 0.93 :
+Using a maximum value of 4.64, we can continue and determine the minimum value which will give us the best RMSE is $r_{min}$ = 0.93 :
 
-```{r, echo=FALSE, fig.align="center", fig.cap = "RMSE vs VMin", fig.width=4, fig.height=2}
-ggplot(mapping = aes(x = vmins, y = rmse_clamp_min_arr)) +
+```{r, echo=FALSE, fig.align="center", fig.cap = "RMSE vs RMin", fig.width=4, fig.height=2}
+ggplot(mapping = aes(x = rmins, y = rmse_clamp_min_arr)) +
   geom_point(color = "darkred") +
-  labs(x = "VMin", y = "RMSE") +
+  labs(x = "RMin", y = "RMSE") +
   theme_minimal() + theme(text = element_text(size = 9), legend.position = "top")
 ```
 
@@ -1329,7 +1332,19 @@ kable(data_summary, format = "latex", booktabs = TRUE, linesep = "", format.args
 
 We now apply the latest prediction algorithm to the final_holdout_test data set.
 
-Join the bias terms :
+We first need to extract the timestamp year and the release year :
+
+```{r eval=FALSE}
+final_holdout_test_movies <- final_holdout_test %>%
+  mutate(
+    datetime = as.POSIXct(timestamp, origin = "1970-01-01", tz = "UTC"),
+    t_year = year(datetime),
+    year = as.integer(str_extract(title, "(?<=\\()\\d{4}(?=\\))"))
+  ) %>%
+  select(userId, movieId, rating, t_year, title, year, genres)
+```
+
+Then join the bias terms b_v, b_w and b_x calculated in section 3.7 :
 
 ```{r eval=FALSE}
 final_holdout_test_movies <- final_holdout_test_movies %>%
@@ -1341,20 +1356,20 @@ final_holdout_test_movies <- final_holdout_test_movies %>%
   mutate(b_w = replace_na(b_w, 0))
 
 final_holdout_test_movies <- final_holdout_test_movies %>%
-  left_join(b_x, by = c("t_year", "year", "title")) %>%
+  left_join(b_x, by = c("movieId", "t_year", "genres")) %>%
   mutate(b_x = replace_na(b_x, 0))
 ```
 
-Compute the predictions :
+And compute the predictions :
 
 The predicted rating is the global mean ($\mu$) plus the three bias components.
-The result is then clamped to the admissible rating range (0.93 – 4.64).
+The result is then clamped to the admissible rating range $r_{min}$, $r_{max}$ where $r_{min}$ and $r_{max}$ were determined in section 3.8.
 
 ```{r eval=FALSE}
 final_holdout_test_movies$pred <- pmin(pmax(mu +
                                               final_holdout_test_movies$b_v +
                                               final_holdout_test_movies$b_w +
-                                              final_holdout_test_movies$b_x, 0.93), 4.64)
+                                              final_holdout_test_movies$b_x, rmin), rmax)
 ```
 
 Evaluate the model :
