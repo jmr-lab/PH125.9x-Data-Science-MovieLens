@@ -5,7 +5,7 @@
 This project, titled "Movie Rating Prediction," aims to explore and create a movie recommendation system using the MovieLens dataset. The dataset utilized contains approximately 10 million ratings, and the objective is to predict movie ratings with a root mean square error (RMSE) lower than 0.86490.
 
 Author : Jean-Marie Roy  
-Date : 23 January 2025  
+Date : 23 January 2026  
 
 ## Requirements
 
