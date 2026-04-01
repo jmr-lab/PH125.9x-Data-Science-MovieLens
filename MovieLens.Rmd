@@ -1,5 +1,6 @@
 ---
 title: "Movie Rating Predictions"
+subtitle: 'HarvardX Data Science Professional Certificate PH125.9x Capstone'
 author: "Jean-Marie Roy"
 date: "2026-01-28"
 output:
@@ -191,10 +192,11 @@ There are approximately 70,000 users who have rated 10,000 movies. Notably, the 
 
 The table below presents the matrix of correlations among the variables :
 
-```{r, echo=FALSE}
-kable(correlation_matrix, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
-  kable_styling(font_size = 9, latex_options = c("hold_position")) %>%
-  row_spec(seq(1, nrow(correlation_matrix), by = 2), background = "#f2f2f2")
+```{r, echo=FALSE, fig.height=3}
+corplot_matrix
+#kable(correlation_matrix, format = "latex", booktabs = TRUE, linesep = "", format.args = list(big.mark = ",")) %>%
+#  kable_styling(font_size = 9, latex_options = c("hold_position")) %>%
+#  row_spec(seq(1, nrow(correlation_matrix), by = 2), background = "#f2f2f2")
 ```
 
 For better reading of the matrix, all values close to zero (ie between -0.1 and 0.1) have been removed or hidden in the matrix.
@@ -219,7 +221,7 @@ Research suggests that most Americans can be uniquely identified using just a co
 
 In our current dataset, the combination of (movieId, userId) serves as a reliable key, as each user rates a specific movie only once. For example, the figure below illustrates the ratings represented on the z-axis, with movieId on the x-axis and userId on the y-axis :
 
-```{r, echo=FALSE, fig.align="center", fig.cap = "Rating per user and movie", fig.height=5}
+```{r, echo=FALSE, fig.align="center", fig.cap = "Rating per user and movie", fig.height=4}
 persp(interp_data$x, interp_data$y, interp_data$z, main = "Ratings", 
       xlab = "Movie ID", ylab = "User ID", zlab = "Rating",
       theta = 30, phi = 30, expand = 0.5, col = "lightblue",shade = 0.5,
