@@ -202,6 +202,29 @@ correlation_matrix <- cor(edx_movies_indexed %>%
                                    t_daywk = t_day_of_week,
                                    t_day, t_month, t_year, t_hour, year))
 
+# Compute a matrix of correlation p-values
+p.mat <- cor_pmat(correlation_matrix)
+
+# Replace p-values with 1 where correlation coefficients are between -0.1 and 0.1
+p.mat[correlation_matrix > -0.1 & correlation_matrix < 0.1] <- 1
+
+# Plotting the correlation matrix with ggcorrplot
+corplot_matrix <- ggcorrplot(correlation_matrix,
+                                 type = "lower",
+                                 lab = TRUE,
+                                 lab_size = 2,
+                                 p.mat = p.mat,
+                                 sig.level = 0.99,
+                                 insig = "blank",
+                                 show.diag = FALSE,
+                                 ggtheme = theme_gray(base_size = 7),
+                                 colors = c("darkblue", "white", "darkred")) +
+  theme(
+    axis.text.x = element_text(size = 7),
+    axis.text.y = element_text(size = 7),
+    legend.position = "right"
+  )
+corplot_matrix
 
 # Plot the values of title_numeric against movieId :
 #head(edx_movies_indexed)
@@ -214,22 +237,22 @@ correlation_matrix <- cor(edx_movies_indexed %>%
 rm(edx_movies_indexed, df_title)
 
 # Format the correlation coefficients
-correlation_matrix <- round(correlation_matrix, 2)  # Round to 4 digits
+#correlation_matrix <- round(correlation_matrix, 2)  # Round to 4 digits
 
 # Move rating to the last row and last column
-correlation_matrix <- cbind(correlation_matrix, 
-                            rating = correlation_matrix[, "rating"])
-correlation_matrix <- rbind(correlation_matrix, 
-                            rating = correlation_matrix["rating", ])
+#correlation_matrix <- cbind(correlation_matrix, 
+#                            rating = correlation_matrix[, "rating"])
+#correlation_matrix <- rbind(correlation_matrix, 
+#                            rating = correlation_matrix["rating", ])
 
 # Remove the original rating column and row
-correlation_matrix <- correlation_matrix[-4, -4]
+#correlation_matrix <- correlation_matrix[-4, -4]
 
 # Remove values between -0.1 and 0.1
-correlation_matrix[correlation_matrix < 0.1 & correlation_matrix > -0.1] <- ""
+#correlation_matrix[correlation_matrix < 0.1 & correlation_matrix > -0.1] <- ""
 
 # View the correlation matrix
-print(correlation_matrix)
+#print(correlation_matrix)
 
 # Keys
 
