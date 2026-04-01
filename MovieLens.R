@@ -1177,7 +1177,7 @@ edx_movies %>%
   sample_n(5)
 
 # Try 5 : we add regularization
-lambdas <- seq(0, 5, 0.1)
+lambdas <- seq(0, 10, 0.5)
 
 # Convert edx_movies to a data.table and select specific columns,
 # if we use the edx_movies data set as is, the time required for computing the RMSEs
